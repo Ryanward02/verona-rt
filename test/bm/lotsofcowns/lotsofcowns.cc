@@ -20,6 +20,21 @@
  * monitors the time. This will then be compared to the starting execution time.
  */
 
+double H(int N, int s) {
+  // if no skew is provided, assume a uniform distribution.
+  double ret = 0;
+  for (int i = 1; i <= N; i++) {
+    ret += 1 / pow(i, s);
+  }
+  return ret;
+}
+
+double zipf(int x, int N, double s) {
+  return ((1 / pow(x, s)) / H(N, s));
+}
+
+
+
 
 class cown
 {
@@ -48,7 +63,8 @@ void sub_array_sequential(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int co
 using namespace verona::cpp;
 void sub_array_random(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count, int arr_len) {
   for (int i = 0; i <= count; i++) {
-      sub_arr[i] = arr[rand() % arr_len]; // TODO: make random choice zipfian
+      int index = zipf(arr_len - count, arr_len, 0.01) * arr_len;
+      sub_arr[i] = arr[index];
   }
 }
 
@@ -67,7 +83,7 @@ std::string printTlist(duration<double> timeList[]) {
   std::string ret = "";
   
   for (int i = 0; i < 100; i++) {
-    ret = ret + std::to_string(timeList[i].count()) + " ";
+    ret = ret + std::to_string(timeList[i+1].count()) + " ";
   }
   
   return ret;
@@ -89,7 +105,8 @@ void test_body()
    * which provides us with our arguments.
   */ 
 
-  high_resolution_clock::time_point t1 = high_resolution_clock::now();
+  // TODO: move into for loop, and make timeList cumulative (during post-execution).
+  high_resolution_clock::time_point t1;
 
   duration<double> timeList[no_of_cowns];
   int execCount = 0;
@@ -98,21 +115,21 @@ void test_body()
 
     int sub_arr_size = rand() % no_of_cowns;
     cown_ptr<cown> sub_arr[sub_arr_size+1]; 
-    sub_array(cowns, sub_arr, sub_arr_size);
+    sub_array_random(cowns, sub_arr, sub_arr_size, no_of_cowns);
 
-    when(cowns[i]) << [=, &timeList](auto){
+    t1 = high_resolution_clock::now();
+    when(*sub_arr) << [=, &timeList](auto){
       high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
-      auto time = ((float)(rand() % 1000) / 10000); // TODO: make spin time zipfian
+      double time = zipf(no_of_cowns - i, no_of_cowns, 1) * 50; // TODO: make spin time zipfian DONE
       std::cout << "(" << (i+1) / 10 << "%) " << "Spin time:\t\t" << time << std::endl;
 
       spin(time);
-
-      t2 = high_resolution_clock::now();
       
       duration<double> total = duration_cast<duration<double>>(t2 - t1);
       
-      if ((i + 1) % 10 == 0) {
+      if (!(total.count() < 0.01) && (i + 1) % 10 == 0) {
+        
         std::memcpy(&timeList[(i + 1) / 10], &total, sizeof(total));
       }
 

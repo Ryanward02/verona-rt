@@ -15,7 +15,7 @@ ninja
 # We can then call each benchmark from the build folder, since ninja has created executables for us.
 
 ./test/bm-con-lotsofcowns
-./test/bm-con-lotsofwhens
+# ./test/bm-con-lotsofwhens
 # ./test/bm-con-servicetime
 
 # Or we can run the test with ctest
