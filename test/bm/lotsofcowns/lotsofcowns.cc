@@ -8,6 +8,10 @@
 #include <ctime>
 #include <ratio>
 #include <chrono>
+#include <random>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 
 /**
@@ -28,18 +32,24 @@ public:
 };
 
 using namespace verona::cpp;
-auto sub_array(cown_ptr<cown> list[], int count) {
-  if (count > (sizeof(list)/sizeof(list[0]))) {
-    return list;
+void sub_array(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count) {
+  for (int i = 0; i <= count; i++) {
+      sub_arr[i] = arr[i];
   }
-  
-  cown_ptr<cown> new_list[count];
-  for (int i = 0; i < count; i++) {
-    new_list[i] = list[i];
+}
+
+using namespace verona::cpp;
+void sub_array_sequential(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count) {
+  for (int i = 0; i <= count; i++) {
+      sub_arr[i] = arr[i];
   }
+}
 
-  return new_list;
-
+using namespace verona::cpp;
+void sub_array_random(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count, int arr_len) {
+  for (int i = 0; i <= count; i++) {
+      sub_arr[i] = arr[rand() % arr_len]; // TODO: make random choice zipfian
+  }
 }
 
 auto spin(double seconds) {
@@ -53,13 +63,23 @@ auto spin(double seconds) {
 
 }
 
+std::string printTlist(duration<double> timeList[]) {
+  std::string ret = "";
+  
+  for (int i = 0; i < 100; i++) {
+    ret = ret + std::to_string(timeList[i].count()) + " ";
+  }
+  
+  return ret;
+}
+
 using namespace verona::cpp;
 void test_body()
 {
-  // Get time here
+  int no_of_cowns = 1000;
 
-  cown_ptr<cown> cowns[1000];
-  for (int i = 0; i < 1000; i++) {
+  cown_ptr<cown> cowns[no_of_cowns];
+  for (int i = 0; i < no_of_cowns; i++) {
     cowns[i] = make_cown<cown>();
   }
 
@@ -70,49 +90,43 @@ void test_body()
   */ 
 
   high_resolution_clock::time_point t1 = high_resolution_clock::now();
-  when(*cowns) << [t1](auto) 
-  { 
-    // WORKING: implementation of a 5 second spin in the while.
-    high_resolution_clock::time_point t2 = high_resolution_clock::now();
-    
-    spin(2.5);
 
-    t2 = high_resolution_clock::now();
-    duration<double> total = duration_cast<duration<double>>(t2 - t1);
+  duration<double> timeList[no_of_cowns];
+  int execCount = 0;
 
-    // Time from schedule to completion of behaviour
-    std::cout << "total time taken:\t" << total.count() << std::endl;
-  };
-  
-  when(*sub_array(cowns, 400)) << [](auto) { Logging::cout() << "log" << Logging::endl; };
+  for (int i = 0; i < no_of_cowns; i++) {
 
-  // Get time here. This will tell us the time it takes to create lots of cowns
-  
+    int sub_arr_size = rand() % no_of_cowns;
+    cown_ptr<cown> sub_arr[sub_arr_size+1]; 
+    sub_array(cowns, sub_arr, sub_arr_size);
+
+    when(cowns[i]) << [=, &timeList](auto){
+      high_resolution_clock::time_point t2 = high_resolution_clock::now();
+
+      auto time = ((float)(rand() % 1000) / 10000); // TODO: make spin time zipfian
+      std::cout << "(" << (i+1) / 10 << "%) " << "Spin time:\t\t" << time << std::endl;
+
+      spin(time);
+
+      t2 = high_resolution_clock::now();
+      
+      duration<double> total = duration_cast<duration<double>>(t2 - t1);
+      
+      if ((i + 1) % 10 == 0) {
+        std::memcpy(&timeList[(i + 1) / 10], &total, sizeof(total));
+      }
 
 
-  // Get time here. 
-  
-  // when(c1, c2, c3, c4, c5) << [](auto, auto, auto, auto, auto) 
-  // {
-  //   // and here. Will tell us when this block begins executing (and therefore how long 5/20 of the last block of whens took.)
-  //   Logging::cout() << "log" << Logging::endl; 
-  // };
+      std::cout << "(" << (i+1) / 10 << "%) " << "Execution Time: \t\t" << total.count() << std::endl;
 
-  // // then here. Tells us how the rt handles an overlap of cowns.
-  // when(c3, c4, c5, c6, c7) << [](auto, auto, auto, auto, auto) 
-  // {
-  //   // and here
-  //   Logging::cout() << "log" << Logging::endl; 
-  // };
-
-  // // then here. Should only execute after everything else has completed.
-  // when(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20) << 
-  //   [](auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto) 
-  // {
-  //   // and here. Will tell us how long all the above took to execute.
-  //   Logging::cout() << "log" << Logging::endl;
-  // };
-  
+      if (i == no_of_cowns - 1) {
+        std::cout << printTlist(timeList) << std::endl;
+        std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList);
+        system(bashCall.c_str());
+      }
+        
+    };
+  }
 }
 
 

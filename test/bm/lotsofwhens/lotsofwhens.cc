@@ -4,6 +4,14 @@
 #include <snmalloc/snmalloc.h>
 #include <verona.h>
 #include <debug/harness.h>
+#include <iostream>
+#include <ctime>
+#include <ratio>
+#include <chrono>
+#include <random>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 
 /**
@@ -15,6 +23,7 @@
 
 class cown
 {
+  // destructor. Not sure when this is called.
 public:
   ~cown()
   {
@@ -23,80 +32,76 @@ public:
 };
 
 using namespace verona::cpp;
+void sub_array(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count) {
+  for (int i = 0; i <= count; i++) {
+      sub_arr[i] = arr[i];
+  }
+}
+
+auto spin(double seconds) {
+  high_resolution_clock::time_point t1 = high_resolution_clock::now();
+  duration<double> timespan = duration_cast<duration<double>>(t1 - t1);
+
+  while (timespan.count() < seconds) {
+    high_resolution_clock::time_point t2 = high_resolution_clock::now();
+    timespan = duration_cast<duration<double>>(t2 - t1);
+  }
+
+}
+
+std::string printTlist(duration<double> timeList[]) {
+  std::string ret = "";
+  
+  for (int i = 0; i < 100; i++) {
+    ret = ret + std::to_string(timeList[i].count()) + " ";
+  }
+  
+  return ret;
+}
+
+using namespace verona::cpp;
 void test_body()
 {
-  cown_ptr<cown> c1 = make_cown<cown>();
-  cown_ptr<cown> c2 = make_cown<cown>();
-  cown_ptr<cown> c3 = make_cown<cown>();
-  cown_ptr<cown> c4 = make_cown<cown>();
-  cown_ptr<cown> c5 = make_cown<cown>();
+  cown_ptr<cown> cown_a = make_cown<cown>();;
 
+  /** 
+   * Created implementations for "lists" of cowns to be passed. 
+   * When accepts a variable argument count, so we can provide a pointer to an array instead, 
+   * which provides us with our arguments.
+  */ 
 
-  // Get time here
-  when(c1) << [](auto) { 
-    // For each of these, get the time here.
-    Logging::cout() << "log" << Logging::endl; 
-  };
+  high_resolution_clock::time_point t1 = high_resolution_clock::now();
 
-  // How will verona handle 20 identical behaviour and cown blocks? these should run sequentially. 
-  // We should see a speed improvement using our optimisations since they aren't actually using c1, so can be de-critical sectioned!!.
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
+  duration<double> timeList[1000];
 
+  for (int i = 0; i < 1000; i++) {
+    
+    when(cown_a) << [=, &timeList](auto){
+      high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
-  // Take time here. Will c1 and c2 run together? they should. These would need c1,c2 to be sequential.
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
+      auto time = ((float)(rand() % 1000) / 10000); // random time to spin - use % 1000 to get int between 0 and 1000, / 1000 to 0-1 with 0.001 precision.
+      std::cout << "(" << (i+1) / 10 << "%) " << "Spin time:\t\t" << time << std::endl;
 
+      spin(time);
 
-  when(c1) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c2) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c3) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c4) << [](auto) { Logging::cout() << "log" << Logging::endl; };
-  when(c5) << [](auto) { Logging::cout() << "log" << Logging::endl; };
+      t2 = high_resolution_clock::now();
+      
+      duration<double> total = duration_cast<duration<double>>(t2 - t1);
+      if ((i + 1) % 10 == 0) {
+        std::memcpy(&timeList[(i + 1) / 10], &total, sizeof(total));
+      }
 
-  // will wait for everything to finish?
-  when(c1, c2, c3, c4, c5) << [](auto, auto, auto, auto, auto) 
-  {
-    Logging::cout() << "log" << Logging::endl; 
-  };
+      
+
+      std::cout << "(" << (i+1) / 10 << "%) " << "Execution Time: \t\t" << total.count() << std::endl;
+
+      if (i == 999) {
+        std::cout << printTlist(timeList) << std::endl;
+        std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList);
+        system(bashCall.c_str());
+      }
+    };
+  }
 }
 
 
@@ -105,5 +110,6 @@ int main(int argc, char** argv) {
   SystematicTestHarness harness(argc, argv);
   harness.run(test_body);
 
+  // Get time here to find out how long the whole test took.
   return 0;
 }
