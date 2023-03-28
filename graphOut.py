@@ -12,8 +12,10 @@ plot = matplotlib.pyplot
 
 plot.scatter(values, x, facecolors='black',alpha=0.55, s=10)
 plot.plot(values, x, alpha=0.1)
-plot.yticks([0.05, 0.25, 0.50, 0.75, 0.95])
-plot.xticks([values[i] for i in [4, 24, 49, 74, 94]])
+plot.yticks([0, 0.05, 0.25, 0.50, 0.75, 0.95, 1])
+plot.xticks()
+
+plot.annotate("5%: " + str((values[4])) + " seconds\n25%: " + str(values[24]) + " seconds\n50%: " + str((values[49])) + " seconds\n75%: " + str((values[74])) + " seconds\n95%: " + str((values[94])) + " seconds", [values[99] * 2/3, 0.5])
 
 plot.ylabel("Percentage of behaviours executed")
 plot.xlabel("Behaviour Latency (Seconds)")

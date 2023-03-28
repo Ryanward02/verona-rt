@@ -63,7 +63,7 @@ void sub_array_sequential(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int co
 using namespace verona::cpp;
 void sub_array_random(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count, int arr_len) {
   for (int i = 0; i <= count; i++) {
-      int index = zipf(arr_len - count, arr_len, 0.01) * arr_len;
+      int index = rand() % arr_len;
       sub_arr[i] = arr[index];
   }
 }
@@ -79,11 +79,32 @@ auto spin(double seconds) {
 
 }
 
+int cmpDouble(const void *a,const void *b) {
+  double *x = (double *) a;
+  double *y = (double *) b;
+  if (*x < *y)
+   return -1;
+  else {
+    if (*x > *y) 
+      return 1;
+    else
+      return 0;
+  }
+    
+}
+
 std::string printTlist(duration<double> timeList[]) {
+  double newList[100];
+  for (int i = 0; i < 100; i++) {
+    newList[i] = timeList[i].count();
+  }
+
+  std::qsort(newList,sizeof(newList)/sizeof(*newList),sizeof(*newList), cmpDouble);
+  
   std::string ret = "";
   
   for (int i = 0; i < 100; i++) {
-    ret = ret + std::to_string(timeList[i+1].count()) + " ";
+    ret = ret + std::to_string(newList[i]) + " ";
   }
   
   return ret;
@@ -118,29 +139,30 @@ void test_body()
     sub_array_random(cowns, sub_arr, sub_arr_size, no_of_cowns);
 
     t1 = high_resolution_clock::now();
-    when(*sub_arr) << [=, &timeList](auto){
+    when(*sub_arr) << [=, &execCount, &timeList](auto){
       high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
-      double time = zipf(no_of_cowns - i, no_of_cowns, 1) * 50; // TODO: make spin time zipfian DONE
-      std::cout << "(" << (i+1) / 10 << "%) " << "Spin time:\t\t" << time << std::endl;
+      double time = zipf(no_of_cowns - execCount, no_of_cowns, 1) * 50; // TODO: make spin time zipfian DONE
+      std::cout << "(" << (execCount+1) / 10 << "%) " << "Spin time:\t\t" << time << std::endl;
 
       spin(time);
       
       duration<double> total = duration_cast<duration<double>>(t2 - t1);
       
-      if (!(total.count() < 0.01) && (i + 1) % 10 == 0) {
+      if (!(total.count() < 0.01) && (execCount + 1) % 10 == 0) {
         
-        std::memcpy(&timeList[(i + 1) / 10], &total, sizeof(total));
+        std::memcpy(&timeList[(execCount + 1) / 10], &total, sizeof(total));
       }
 
+      std::cout << "(" << (execCount+1) / 10 << "%) " << "Execution Time: \t\t" << total.count() << std::endl;
 
-      std::cout << "(" << (i+1) / 10 << "%) " << "Execution Time: \t\t" << total.count() << std::endl;
-
-      if (i == no_of_cowns - 1) {
+      if (execCount == no_of_cowns - 1) {
         std::cout << printTlist(timeList) << std::endl;
         std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList);
         system(bashCall.c_str());
       }
+
+      execCount++;
         
     };
   }
