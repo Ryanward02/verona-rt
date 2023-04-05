@@ -4,6 +4,7 @@
 #include <snmalloc/snmalloc.h>
 #include <verona.h>
 #include <debug/harness.h>
+#include <zipfDist.h>
 #include <iostream>
 #include <ctime>
 #include <ratio>
@@ -20,53 +21,19 @@
  * monitors the time. This will then be compared to the starting execution time.
  */
 
-double H(int N, int s) {
-  // if no skew is provided, assume a uniform distribution.
-  double ret = 0;
-  for (int i = 1; i <= N; i++) {
-    ret += 1 / pow(i, s);
-  }
-  return ret;
-}
+// using namespace verona::cpp;
+// void sub_array(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count) {
+//   for (int i = 0; i <= count; i++) {
+//       sub_arr[i] = arr[i];
+//   }
+// }
 
-double zipf(int x, int N, double s) {
-  return ((1 / pow(x, s)) / H(N, s));
-}
-
-
-
-
-class cown
-{
-  // destructor. Not sure when this is called.
-public:
-  ~cown()
-  {
-    Logging::cout() << "Cown" << Logging::endl;
-  }
-};
-
-using namespace verona::cpp;
-void sub_array(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count) {
-  for (int i = 0; i <= count; i++) {
-      sub_arr[i] = arr[i];
-  }
-}
-
-using namespace verona::cpp;
-void sub_array_sequential(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count) {
-  for (int i = 0; i <= count; i++) {
-      sub_arr[i] = arr[i];
-  }
-}
-
-using namespace verona::cpp;
-void sub_array_random(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count, int arr_len) {
-  for (int i = 0; i <= count; i++) {
-      int index = rand() % arr_len;
-      sub_arr[i] = arr[index];
-  }
-}
+// using namespace verona::cpp;
+// void sub_array_sequential(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count) {
+//   for (int i = 0; i <= count; i++) {
+//       sub_arr[i] = arr[i];
+//   }
+// }
 
 auto spin(double seconds) {
   high_resolution_clock::time_point t1 = high_resolution_clock::now();
@@ -100,7 +67,7 @@ std::string printTlist(duration<double> timeList[]) {
   }
 
   std::qsort(newList,sizeof(newList)/sizeof(*newList),sizeof(*newList), cmpDouble);
-  
+   
   std::string ret = "";
   
   for (int i = 0; i < 100; i++) {
@@ -142,7 +109,7 @@ void test_body()
     when(*sub_arr) << [=, &execCount, &timeList](auto){
       high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
-      double time = zipf(no_of_cowns - execCount, no_of_cowns, 1) * 50; // TODO: make spin time zipfian DONE
+      double time = zipf(no_of_cowns - execCount, no_of_cowns, 1) * 50;
       std::cout << "(" << (execCount+1) / 10 << "%) " << "Spin time:\t\t" << time << std::endl;
 
       spin(time);
@@ -161,6 +128,7 @@ void test_body()
         std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList);
         system(bashCall.c_str());
       }
+
 
       execCount++;
         

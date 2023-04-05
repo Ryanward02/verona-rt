@@ -13,6 +13,13 @@ cd build_ninja
 ninja
 
 # We can then call each benchmark from the build folder, since ninja has created executables for us.
+# if [ $? -ne 0 ]
+# then
+#     echo build failed
+#     exit -1
+# fi
+# date
+
 
 ./test/bm-con-lotsofcowns
 # ./test/bm-con-lotsofwhens
