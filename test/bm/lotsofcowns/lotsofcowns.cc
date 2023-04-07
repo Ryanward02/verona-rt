@@ -35,6 +35,19 @@
 //   }
 // }
 
+using namespace verona::cpp;
+void sub_array_random(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count, int arr_len) { // , Generator *gen) {
+  for (int i = 0; i <= count; i++) {
+    long index = gen->nextValue();
+
+    // int index = (int)(zipf(rand() % arr_len, arr_len, 0.3) * (1000 * arr_len)) % arr_len;
+    std::cout << index << std::endl;
+
+    sub_arr[i] = arr[(int)index];
+  }
+}
+
+
 auto spin(double seconds) {
   high_resolution_clock::time_point t1 = high_resolution_clock::now();
   duration<double> timespan = duration_cast<duration<double>>(t1 - t1);
@@ -44,20 +57,6 @@ auto spin(double seconds) {
     timespan = duration_cast<duration<double>>(t2 - t1);
   }
 
-}
-
-int cmpDouble(const void *a,const void *b) {
-  double *x = (double *) a;
-  double *y = (double *) b;
-  if (*x < *y)
-   return -1;
-  else {
-    if (*x > *y) 
-      return 1;
-    else
-      return 0;
-  }
-    
 }
 
 std::string printTlist(duration<double> timeList[]) {
@@ -103,16 +102,20 @@ void test_body()
 
     int sub_arr_size = rand() % no_of_cowns;
     cown_ptr<cown> sub_arr[sub_arr_size+1]; 
-    sub_array_random(cowns, sub_arr, sub_arr_size, no_of_cowns);
+
+    // ScrambledZipfianGenerator *gen = new ScrambledZipfianGenerator(0, no_of_cowns);
+
+
+    sub_array_random(cowns, sub_arr, sub_arr_size, no_of_cowns, gen);
 
     t1 = high_resolution_clock::now();
     when(*sub_arr) << [=, &execCount, &timeList](auto){
       high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
-      double time = zipf(no_of_cowns - execCount, no_of_cowns, 1) * 50;
-      std::cout << "(" << (execCount+1) / 10 << "%) " << "Spin time:\t\t" << time << std::endl;
+      // double time = zipf(no_of_cowns - execCount, no_of_cowns, 1) * 50;
+      // std::cout << "(" << (execCount+1) / 10 << "%) " << "Spin time:\t\t" << time << std::endl;
 
-      spin(time);
+      spin((rand() % 100) / 100);
       
       duration<double> total = duration_cast<duration<double>>(t2 - t1);
       
