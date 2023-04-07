@@ -13,9 +13,13 @@ class cown
 {
   // destructor. Not sure when this is called.
 public:
+  int i = 0;
+  cown(int i) {
+    this->i = i;
+  }
   ~cown()
   {
-    std::cout << "Cown" << std::endl;
+    std::cout << "Cown: " << i << std::endl;
   }
 };
 
@@ -216,15 +220,3 @@ int cmpInt(const void *a,const void *b) {
   }
 }
 
-double H(int N, int s) {
-  // if no skew is provided, assume a uniform distribution.
-  double ret = 0;
-  for (int i = 1; i <= N; i++) {
-    ret += 1 / pow(i, s);
-  }
-  return ret;
-}
-
-double zipf(int x, int N, double s) {
-  return ((1 / pow(x, s)) / H(N, s));
-}

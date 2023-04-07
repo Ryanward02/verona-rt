@@ -34,18 +34,31 @@
 //       sub_arr[i] = arr[i];
 //   }
 // }
+using namespace verona::cpp;
+bool isIn(cown_ptr<cown> item, cown_ptr<cown> arr[], int arr_len) {
+    for (int i = 0; i < arr_len; i++) {
+        if (item == arr[i]) {
+            return true;
+        }
+    }
+    return false;
+}
 
 using namespace verona::cpp;
-void sub_array_random(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count, int arr_len) { // , Generator *gen) {
+void sub_array_random(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count, int arr_len) {
+  ZipfianGenerator gen = ZipfianGenerator(0, arr_len-1);
   for (int i = 0; i <= count; i++) {
-    long index = gen->nextValue();
-
-    // int index = (int)(zipf(rand() % arr_len, arr_len, 0.3) * (1000 * arr_len)) % arr_len;
-    std::cout << index << std::endl;
-
-    sub_arr[i] = arr[(int)index];
+    int index = gen.nextValue();
+    // while (isIn(arr[index], sub_arr, i)) {
+    //   index = gen.nextValue();
+    // }
+    sub_arr[i] = arr[index];
   }
 }
+
+
+
+
 
 
 auto spin(double seconds) {
@@ -83,7 +96,7 @@ void test_body()
 
   cown_ptr<cown> cowns[no_of_cowns];
   for (int i = 0; i < no_of_cowns; i++) {
-    cowns[i] = make_cown<cown>();
+    cowns[i] = make_cown<cown>(i);
   }
 
   /** 
@@ -106,7 +119,7 @@ void test_body()
     // ScrambledZipfianGenerator *gen = new ScrambledZipfianGenerator(0, no_of_cowns);
 
 
-    sub_array_random(cowns, sub_arr, sub_arr_size, no_of_cowns, gen);
+    sub_array_random(cowns, sub_arr, sub_arr_size, no_of_cowns);
 
     t1 = high_resolution_clock::now();
     when(*sub_arr) << [=, &execCount, &timeList](auto){
@@ -115,7 +128,8 @@ void test_body()
       // double time = zipf(no_of_cowns - execCount, no_of_cowns, 1) * 50;
       // std::cout << "(" << (execCount+1) / 10 << "%) " << "Spin time:\t\t" << time << std::endl;
 
-      spin((rand() % 100) / 100);
+      // spin((rand() % 100) / 100.0);
+      spin(0.1);
       
       duration<double> total = duration_cast<duration<double>>(t2 - t1);
       
