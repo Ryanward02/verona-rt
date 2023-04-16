@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 
 
 /**
@@ -45,21 +46,17 @@ bool isIn(cown_ptr<cown> item, cown_ptr<cown> arr[], int arr_len) {
 }
 
 using namespace verona::cpp;
-void sub_array_random(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count, int arr_len) {
-  ZipfianGenerator gen = ZipfianGenerator(0, arr_len-1);
+
+void sub_array_random(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count, int arr_len, double zipfConstant = 0.99) {
+  ZipfianGenerator gen = ZipfianGenerator(0, arr_len - 1, zipfConstant);
   for (int i = 0; i <= count; i++) {
     int index = gen.nextValue();
-    // while (isIn(arr[index], sub_arr, i)) {
-    //   index = gen.nextValue();
-    // }
+    // int index = i;
     sub_arr[i] = arr[index];
   }
+
+
 }
-
-
-
-
-
 
 auto spin(double seconds) {
   high_resolution_clock::time_point t1 = high_resolution_clock::now();
@@ -72,31 +69,31 @@ auto spin(double seconds) {
 
 }
 
-std::string printTlist(duration<double> timeList[]) {
-  double newList[100];
-  for (int i = 0; i < 100; i++) {
-    newList[i] = timeList[i].count();
-  }
-
-  std::qsort(newList,sizeof(newList)/sizeof(*newList),sizeof(*newList), cmpDouble);
+std::string printTlist(std::vector<double> *timeList, int length) {
+  
+  // std::qsort(timeList,sizeof(timeList)/sizeof(*timeList),sizeof(*timeList), cmpDouble);
    
   std::string ret = "";
   
-  for (int i = 0; i < 100; i++) {
-    ret = ret + std::to_string(newList[i]) + " ";
+  for (int i = 0; i < length; i++) {
+    std::cout << "time (i): " << std::to_string(timeList->at(i)) << std::endl;
+    ret = ret + std::to_string(timeList->at(i)) + " ";
   }
-  
   return ret;
 }
-
 using namespace verona::cpp;
+using namespace verona::rt;
 void test_body()
 {
   int no_of_cowns = 1000;
 
+  // std::vector<cown_ptr<cown>> cowns;
   cown_ptr<cown> cowns[no_of_cowns];
   for (int i = 0; i < no_of_cowns; i++) {
+    // cowns.push_back(make_cown<cown>(i));
     cowns[i] = make_cown<cown>(i);
+
+    // cowns[i] = new Cown();
   }
 
   /** 
@@ -108,46 +105,62 @@ void test_body()
   // TODO: move into for loop, and make timeList cumulative (during post-execution).
   high_resolution_clock::time_point t1;
 
-  duration<double> timeList[no_of_cowns];
-  int execCount = 0;
+  pthread_mutex_t lock;
 
-  for (int i = 0; i < no_of_cowns; i++) {
+  pthread_mutex_init(&lock, NULL);
 
-    int sub_arr_size = rand() % no_of_cowns;
+  ScrambledZipfianGenerator *gen = new ScrambledZipfianGenerator(0, no_of_cowns);
+
+  // Define how many when blocks you wish to call.
+  const int no_of_whens = 1000;
+
+  std::vector<double>* timeList = new std::vector<double>;
+  timeList->reserve(no_of_whens);
+  
+  std::cout << "size: " << timeList->size() << std::endl;
+  // duration<double> timeList[no_of_cowns];
+  
+  for (int i = 0; i < no_of_whens; i++) {
+    // int sub_arr_size = no_of_iterations;
+
+    int sub_arr_size = gen->nextValue();
+
     cown_ptr<cown> sub_arr[sub_arr_size+1]; 
 
-    // ScrambledZipfianGenerator *gen = new ScrambledZipfianGenerator(0, no_of_cowns);
+    sub_array_random(cowns, sub_arr, sub_arr_size, no_of_cowns, 2);
 
-
-    sub_array_random(cowns, sub_arr, sub_arr_size, no_of_cowns);
+    // std::cout << "given sub_arr_size: " << in << std::endl;
 
     t1 = high_resolution_clock::now();
-    when(*sub_arr) << [=, &execCount, &timeList](auto){
+
+    when(*sub_arr) << [=, &lock](auto){
       high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
-      // double time = zipf(no_of_cowns - execCount, no_of_cowns, 1) * 50;
-      // std::cout << "(" << (execCount+1) / 10 << "%) " << "Spin time:\t\t" << time << std::endl;
+      // double time = (double)(gen->nextValue() / 500);
+      double time = 0.1;
 
-      // spin((rand() % 100) / 100.0);
-      spin(0.1);
+      spin(time);
       
       duration<double> total = duration_cast<duration<double>>(t2 - t1);
+      pthread_mutex_lock(&lock);
+
+      std::cout << std::to_string((int)((timeList->size() / no_of_whens) * 100)) << "%\t" << total.count() << " seconds" << std::endl;
+
+      timeList->push_back(total.count());
+      std::cout << "size: " << timeList->size() << std::endl;
+      // pthread_mutex_unlock(&lock);
       
-      if (!(total.count() < 0.01) && (execCount + 1) % 10 == 0) {
-        
-        std::memcpy(&timeList[(execCount + 1) / 10], &total, sizeof(total));
-      }
-
-      std::cout << "(" << (execCount+1) / 10 << "%) " << "Execution Time: \t\t" << total.count() << std::endl;
-
-      if (execCount == no_of_cowns - 1) {
-        std::cout << printTlist(timeList) << std::endl;
-        std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList);
+      // pthread_mutex_lock(&lock);
+      if (timeList->size() == no_of_whens - 1) {
+        std::cout << printTlist(timeList, timeList->size()) << std::endl;
+        pthread_mutex_unlock(&lock);
+        std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList, timeList->size());
         system(bashCall.c_str());
+      } else {
+        pthread_mutex_unlock(&lock);
       }
 
 
-      execCount++;
         
     };
   }

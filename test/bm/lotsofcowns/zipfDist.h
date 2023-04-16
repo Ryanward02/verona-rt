@@ -11,16 +11,18 @@
 
 class cown
 {
+private:
+  int i = 0;
   // destructor. Not sure when this is called.
 public:
-  int i = 0;
   cown(int i) {
     this->i = i;
   }
-  ~cown()
-  {
-    std::cout << "Cown: " << i << std::endl;
-  }
+  ~cown() {};
+//   {
+    
+//     std::cout << "I'm DEAD : " << std::to_string(i) << std::endl;
+//   }
 };
 
 class Generator
