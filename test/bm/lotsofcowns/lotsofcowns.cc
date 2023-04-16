@@ -44,31 +44,48 @@ auto spin(double seconds) {
 
 }
 
+/**
+ * Function to create a printable list of doubles. 
+ * This allows us to use as input for argv inside python script (which gives us graph)
+*/
 std::string printTlist(std::vector<double> *timeList, int length) {
-  
-  // std::qsort(timeList,sizeof(timeList)/sizeof(*timeList),sizeof(*timeList), cmpDouble);
-   
+     
   std::string ret = "";
   
   for (int i = 0; i < length; i++) {
-    std::cout << "time (i): " << std::to_string(timeList->at(i)) << std::endl;
     ret = ret + std::to_string(timeList->at(i)) + " ";
   }
   return ret;
 }
+
+/**
+ * Main test body. Creates large list of cowns
+  * Given no of when blocks, schedules all when blocks
+  * Creates and initialises a lock to stop concurrent data access to timeList
+  * Gets the current time.
+  * Generates a new cown list for each block based on our given zipf dist.
+    * Schedules the when block. Inside the when block we:
+      * Get the time again. This is the time between schedule and execution.
+      * Spin (simulate a behaviour being executed) for a certain amount of time. 
+      * This can be distributed, or it can be fixed.
+      * We get the difference in times, and lock our mutex.
+        * Add the time count to timeList.
+        * if our timeList has the same as the no of iterations, we have reached our final when block. 
+          * As such, we can call printTList which gives us the input for our system call to the python script.
+          * so we can create the system call (variable bashCall) and unlock our mutex.
+          * Then we call python to create our graph.
+        * Otherwise, we just unlock the mutex.
+ * 
+*/
 using namespace verona::cpp;
 using namespace verona::rt;
 void test_body()
 {
   int no_of_cowns = 1000;
-
-  // std::vector<cown_ptr<cown>> cowns;
   std::vector<cown_ptr<cown>> *cowns = new std::vector<cown_ptr<cown>>;
   for (int i = 0; i < no_of_cowns; i++) {
-    // cowns.push_back(make_cown<cown>(i));
     cowns->emplace_back(make_cown<cown>(i));
 
-    // cowns[i] = new Cown();
   }
 
   /** 
@@ -85,6 +102,7 @@ void test_body()
   pthread_mutex_init(&lock, NULL);
 
   ScrambledZipfianGenerator *gen = new ScrambledZipfianGenerator(0, no_of_cowns);
+  ZipfianGenerator *timeDist = new ZipfianGenerator(10, 30);
 
   // Define how many when blocks you wish to call.
   const int no_of_whens = 1000;
@@ -93,10 +111,8 @@ void test_body()
   timeList->reserve(no_of_whens);
   
   std::cout << "size: " << timeList->size() << std::endl;
-  // duration<double> timeList[no_of_cowns];
   
   for (int i = 0; i < no_of_whens; i++) {
-    // int sub_arr_size = no_of_iterations;
 
     int sub_arr_size = gen->nextValue();
 
@@ -104,32 +120,30 @@ void test_body()
 
     sub_array_random(cowns, sub_arr, sub_arr_size, 2);
 
-    // std::cout << "given sub_arr_size: " << in << std::endl;
 
     t1 = high_resolution_clock::now();
 
     when(*sub_arr->data()) << [=, &lock](auto){
-      high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
-      // double time = (double)(gen->nextValue() / 500);
-      double time = 0.1;
+      double time = ((double)timeDist->nextValue() / (double)100); // Gets zipf-dist rand.var between 0.1 and 0.2.
+      std::cout << time << " spin " << std::endl;
+      
+      // double time = 0.1;
 
       spin(time);
       
+      high_resolution_clock::time_point t2 = high_resolution_clock::now();
       duration<double> total = duration_cast<duration<double>>(t2 - t1);
       pthread_mutex_lock(&lock);
 
-      std::cout << std::to_string((int)((timeList->size() / no_of_whens) * 100)) << "%\t" << total.count() << " seconds" << std::endl;
+      std::cout << timeList->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
 
       timeList->push_back(total.count());
-      std::cout << "size: " << timeList->size() << std::endl;
-      // pthread_mutex_unlock(&lock);
-      
-      // pthread_mutex_lock(&lock);
+
       if (timeList->size() == no_of_whens - 1) {
         std::cout << printTlist(timeList, timeList->size()) << std::endl;
-        pthread_mutex_unlock(&lock);
         std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList, timeList->size());
+        pthread_mutex_unlock(&lock);
         system(bashCall.c_str());
       } else {
         pthread_mutex_unlock(&lock);
@@ -147,6 +161,5 @@ int main(int argc, char** argv) {
   SystematicTestHarness harness(argc, argv);
   harness.run(test_body);
 
-  // Get time here to find out how long the whole test took.
   return 0;
 }

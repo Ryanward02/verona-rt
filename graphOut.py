@@ -12,6 +12,8 @@ values = sorted(values)
 total_count = len(values)
 plot = matplotlib.pyplot
 
+
+
 plot.scatter(values, x, facecolors='black',alpha=0.55, s=10)
 plot.plot(values, x, alpha=0.1)
 plot.yticks([0, 0.05, 0.25, 0.50, 0.75, 0.95, 1])
@@ -19,6 +21,13 @@ plot.xticks()
 
 plot.ylabel("Percentage of behaviours executed")
 plot.xlabel("Behaviour Latency (Seconds)")
+
+
+print("5%", "at ", values[int((total_count / 100) * 5 - 1)], 'seconds')
+print("25%", "at ", values[int((total_count / 100) * 25 - 1)], 'seconds')
+print("50%", "at ", values[int((total_count / 100) * 50 - 1)], 'seconds')
+print("75%", "at ", values[int((total_count / 100) * 75 - 1)], 'seconds')
+print("95%", "at ", values[int((total_count / 100) * 95 - 1)], 'seconds')
 
 plot.scatter(values[int((total_count / 100) * 5 - 1)], 0.05, color="red")
 plot.plot([values[int((total_count / 100) * 5 - 1)] for i in range(100)], [0.04 for i in range(100)], alpha=0.3)
