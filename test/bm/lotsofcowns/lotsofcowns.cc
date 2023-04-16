@@ -1,12 +1,9 @@
-#include <iostream>
 #include <stdlib.h>
 #include <cpp/when.h>
 #include <snmalloc/snmalloc.h>
 #include <verona.h>
 #include <debug/harness.h>
 #include <zipfDist.h>
-#include <iostream>
-#include <ctime>
 #include <ratio>
 #include <chrono>
 #include <random>
@@ -22,42 +19,20 @@
  * monitors the time. This will then be compared to the starting execution time.
  */
 
-// using namespace verona::cpp;
-// void sub_array(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count) {
-//   for (int i = 0; i <= count; i++) {
-//       sub_arr[i] = arr[i];
-//   }
-// }
-
-// using namespace verona::cpp;
-// void sub_array_sequential(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count) {
-//   for (int i = 0; i <= count; i++) {
-//       sub_arr[i] = arr[i];
-//   }
-// }
 using namespace verona::cpp;
-bool isIn(cown_ptr<cown> item, cown_ptr<cown> arr[], int arr_len) {
-    for (int i = 0; i < arr_len; i++) {
-        if (item == arr[i]) {
-            return true;
-        }
-    }
-    return false;
-}
-
-using namespace verona::cpp;
-
-void sub_array_random(cown_ptr<cown> arr[], cown_ptr<cown> sub_arr[], int count, int arr_len, double zipfConstant = 0.99) {
-  ZipfianGenerator gen = ZipfianGenerator(0, arr_len - 1, zipfConstant);
+void sub_array_random(std::vector<cown_ptr<cown>>* arr, std::vector<cown_ptr<cown>>* sub_arr, int count, double zipfConstant = 0.99) {
+  ZipfianGenerator gen = ZipfianGenerator(0, arr->size() - 1, zipfConstant);
   for (int i = 0; i <= count; i++) {
     int index = gen.nextValue();
     // int index = i;
-    sub_arr[i] = arr[index];
+    cown_ptr<cown> ptr = arr->at(index);
+    sub_arr->emplace_back(ptr);
   }
-
-
 }
 
+/**
+ * Spins for the time given via the 'seconds' parameter.
+*/
 auto spin(double seconds) {
   high_resolution_clock::time_point t1 = high_resolution_clock::now();
   duration<double> timespan = duration_cast<duration<double>>(t1 - t1);
@@ -88,10 +63,10 @@ void test_body()
   int no_of_cowns = 1000;
 
   // std::vector<cown_ptr<cown>> cowns;
-  cown_ptr<cown> cowns[no_of_cowns];
+  std::vector<cown_ptr<cown>> *cowns = new std::vector<cown_ptr<cown>>;
   for (int i = 0; i < no_of_cowns; i++) {
     // cowns.push_back(make_cown<cown>(i));
-    cowns[i] = make_cown<cown>(i);
+    cowns->emplace_back(make_cown<cown>(i));
 
     // cowns[i] = new Cown();
   }
@@ -125,15 +100,15 @@ void test_body()
 
     int sub_arr_size = gen->nextValue();
 
-    cown_ptr<cown> sub_arr[sub_arr_size+1]; 
+    std::vector<cown_ptr<cown>>* sub_arr = new std::vector<cown_ptr<cown>>; 
 
-    sub_array_random(cowns, sub_arr, sub_arr_size, no_of_cowns, 2);
+    sub_array_random(cowns, sub_arr, sub_arr_size, 2);
 
     // std::cout << "given sub_arr_size: " << in << std::endl;
 
     t1 = high_resolution_clock::now();
 
-    when(*sub_arr) << [=, &lock](auto){
+    when(*sub_arr->data()) << [=, &lock](auto){
       high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
       // double time = (double)(gen->nextValue() / 500);

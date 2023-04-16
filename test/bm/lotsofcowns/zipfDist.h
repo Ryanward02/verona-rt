@@ -18,11 +18,11 @@ public:
   cown(int i) {
     this->i = i;
   }
-  ~cown() {};
-//   {
+  ~cown()
+  {
     
-//     std::cout << "I'm DEAD : " << std::to_string(i) << std::endl;
-//   }
+    std::cout << "I'm DEAD : " << std::to_string(i) << std::endl;
+  }
 };
 
 class Generator
