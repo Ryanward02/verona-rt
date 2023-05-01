@@ -1,4 +1,4 @@
-import matplotlib.pyplot
+import matplotlib.pyplot as plt
 import sys
 import math
 
@@ -9,18 +9,38 @@ for i in sys.argv[1:]:
 
 x = [(i+1) / len(values) for i in range(len(values))]
 values = sorted(values)
-total_count = len(values)
-plot = matplotlib.pyplot
 
+throughputList = [0] * (math.ceil(max(values)) + 2)
+currentTime = 1
+for i in values:
+    if i >= currentTime:
+        currentTime += 1
+    throughputList[currentTime] += 1
+
+avgThroughput = len(values) / values[-1]
+
+print(throughputList)
+
+total_count = len(values)
+fig, (plot, plot2) = plt.subplots(2)
+# plot2 = plt
+
+plot2.plot([i for i in range(len(throughputList))], throughputList)
+plot2.axhline(y = avgThroughput, color="r")
+plt.sca(plot2)
+plt.yticks([0, throughputList[int(len(throughputList) / 4)], throughputList[int(len(throughputList) / 4) * 3], max(throughputList), avgThroughput])
+plt.ylabel("rolling throughput (behaviours/second)")
+plt.xlabel("time (seconds)")
 
 
 plot.scatter(values, x, facecolors='black',alpha=0.55, s=10)
 plot.plot(values, x, alpha=0.1)
-plot.yticks([0, 0.05, 0.25, 0.50, 0.75, 0.95, 1])
-plot.xticks()
 
-plot.ylabel("Percentage of behaviours executed")
-plot.xlabel("Behaviour Latency (Seconds)")
+plt.sca(plot)
+plt.yticks([0, 0.05, 0.25, 0.50, 0.75, 0.95, 1])
+plt.xticks()
+plt.ylabel("Percentage of behaviours executed")
+plt.xlabel("Behaviour Latency (Seconds)")
 
 
 print("5%", "at ", values[int((total_count / 100) * 5 - 1)], 'seconds')
@@ -47,4 +67,4 @@ plot.plot([values[int((total_count / 100) * 95 - 1)] for i in range(100)], [0.94
 
 
 
-plot.show()
+plt.show()

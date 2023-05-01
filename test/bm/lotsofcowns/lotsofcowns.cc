@@ -11,19 +11,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <fstream>
+#include <iostream>
 
 
 /**
- * Tests execution time of a program that contains lots of cowns all being accessed by the same behaviour.
- * We will build a list of Cowns, each accessible separately, which are then staggered to a when block that
- * monitors the time. This will then be compared to the starting execution time.
- */
+ * Tests the scheduling latency of behaviours based on how cowns are distributed. 
+ * We create lots of cowns, and have a function that creates a subarray of cowns based on a Zipfian distribution.
+ * We then create lots of whens, and time how long they take to begin executing. 
+*/
 
 using namespace verona::cpp;
-void sub_array_random(std::vector<cown_ptr<cown>>* arr, std::vector<cown_ptr<cown>>* sub_arr, int count, double zipfConstant = 0.99) {
-  ZipfianGenerator gen = ZipfianGenerator(0, arr->size() - 1, zipfConstant);
+void sub_array_random(std::vector<cown_ptr<cown>>* arr, std::vector<cown_ptr<cown>>* sub_arr, int count, bool uniform, double zipfConstant = 0.99) {
+  Generator *gen;
+  if (uniform) {
+    gen = new UniformGenerator(0, arr->size()-1);
+  } else {
+    gen = new ZipfianGenerator(0, arr->size() - 1, zipfConstant);
+  }
   for (int i = 0; i <= count; i++) {
-    int index = gen.nextValue();
+    int index = gen->nextValue();
     // int index = i;
     cown_ptr<cown> ptr = arr->at(index);
     sub_arr->emplace_back(ptr);
@@ -63,7 +70,7 @@ std::string printTlist(std::vector<double> *timeList, int length) {
   * Given no of when blocks, schedules all when blocks
   * Creates and initialises a lock to stop concurrent data access to timeList
   * Gets the current time.
-  * Generates a new cown list for each block based on our given zipf dist.
+  * Generates a new cown list for each "when" based on our given zipf dist.
     * Schedules the when block. Inside the when block we:
       * Get the time again. This is the time between schedule and execution.
       * Spin (simulate a behaviour being executed) for a certain amount of time. 
@@ -79,9 +86,43 @@ std::string printTlist(std::vector<double> *timeList, int length) {
 */
 using namespace verona::cpp;
 using namespace verona::rt;
-void test_body()
+void test_body(int argc, char** argv)
 {
-  int no_of_cowns = 1000;
+
+  bool uniform_cowns = false;
+  double cownConstant = double(2);
+  bool uniform_servicetime = true;
+  bool servConstant = double(2);
+  int no_of_cowns = int(1000);
+
+  for (int i = 0; i < argc; i++) {
+    if (strcmp(argv[i], "--cownPop") == 0) {
+      if (strcmp(argv[i+1], "uniform") == 0) {
+        uniform_cowns = true;
+        std::cout << "uniform cown population" << std::endl;
+        // Set *gen = UniformGenerator
+      } else {
+        // Get zipfconstant from <> parsing
+        std::cout << "zipfian cown population with zipfian constant:" << std::to_string(cownConstant) << std::endl;
+      }
+    }
+    if (strcmp(argv[i], "--cownCount") == 0) {
+      // Need to create integer parser or find implementation
+      std::cout << argv[i+1] << " cowns" << std::endl;
+      no_of_cowns = atoi(argv[i+1]);
+    }
+    if (strcmp(argv[i], "--servTime") == 0) {
+      if (strcmp(argv[i+1], "uniform service time") != 0) {
+        uniform_servicetime = false;
+      } else {
+        // Do same as cownPop but for serviceTime Generator
+        std::cout << "zipfian service time with zipfian constant:" << std::to_string(cownConstant) << std::endl;
+      }
+    }
+  }
+
+
+
   std::vector<cown_ptr<cown>> *cowns = new std::vector<cown_ptr<cown>>;
   for (int i = 0; i < no_of_cowns; i++) {
     cowns->emplace_back(make_cown<cown>(i));
@@ -101,8 +142,24 @@ void test_body()
 
   pthread_mutex_init(&lock, NULL);
 
-  ScrambledZipfianGenerator *gen = new ScrambledZipfianGenerator(0, no_of_cowns);
-  ZipfianGenerator *timeDist = new ZipfianGenerator(10, 30);
+  Generator *gen;
+
+  if (uniform_cowns) {
+    gen = new UniformGenerator(no_of_cowns);
+  } else {
+    gen = new ScrambledZipfianGenerator(0, no_of_cowns, cownConstant);
+  }
+
+  // UniformGenerator *gen = new UniformGenerator(0, no_of_cowns);
+  // ScrambledZipfianGenerator *gen = new ScrambledZipfianGenerator(0, no_of_cowns);
+  
+  Generator *timeDist;
+
+  if (uniform_servicetime) {
+    timeDist = new UniformGenerator(10, 30);
+  } else {
+    timeDist = new ZipfianGenerator(10, 30, servConstant);
+  }
 
   // Define how many when blocks you wish to call.
   const int no_of_whens = 1000;
@@ -110,7 +167,7 @@ void test_body()
   std::vector<double>* timeList = new std::vector<double>;
   timeList->reserve(no_of_whens);
   
-  std::cout << "size: " << timeList->size() << std::endl;
+  // std::cout << "size: " << timeList->size() << std::endl;
   
   for (int i = 0; i < no_of_whens; i++) {
 
@@ -118,15 +175,18 @@ void test_body()
 
     std::vector<cown_ptr<cown>>* sub_arr = new std::vector<cown_ptr<cown>>; 
 
-    sub_array_random(cowns, sub_arr, sub_arr_size, 2);
+    sub_array_random(cowns, sub_arr, sub_arr_size, uniform_cowns, cownConstant);
 
 
     t1 = high_resolution_clock::now();
 
     when(*sub_arr->data()) << [=, &lock](auto){
 
-      double time = ((double)timeDist->nextValue() / (double)100); // Gets zipf-dist rand.var between 0.1 and 0.2.
-      std::cout << time << " spin " << std::endl;
+      double time = (double)timeDist->nextValue() / (double)200;
+      
+      // Gets zipf-dist rand.var between 0.05 and 0.15.
+       
+      // std::cout << time << " spin " << std::endl;
       
       // double time = 0.1;
 
@@ -136,30 +196,44 @@ void test_body()
       duration<double> total = duration_cast<duration<double>>(t2 - t1);
       pthread_mutex_lock(&lock);
 
-      std::cout << timeList->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
+      // std::cout << timeList->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
+      // if (fmod(double(timeList->size()) / double(no_of_whens) * double(100), 10) == 0) {
+      //   std::cout << (double)timeList->size() / (double)no_of_whens * double(100) << " percent complete" << std::endl;
+      // }
+      
+      std::cout << timeList->size() << " of " << no_of_whens << std::endl;
 
-      timeList->push_back(total.count());
+      timeList->emplace_back(total.count());
 
       if (timeList->size() == no_of_whens - 1) {
         std::cout << printTlist(timeList, timeList->size()) << std::endl;
         std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList, timeList->size());
+        std::ofstream out("../test.txt");
+        out << printTlist(timeList, timeList->size());
+        out.close();
         pthread_mutex_unlock(&lock);
         system(bashCall.c_str());
       } else {
         pthread_mutex_unlock(&lock);
       }
-
-
-        
     };
   }
 }
 
-
+/**
+ * Function Main body. Purely for calling test_body. Uses Systematic testing.
+*/
 int main(int argc, char** argv) {
   
   SystematicTestHarness harness(argc, argv);
-  harness.run(test_body);
+  // Add command line input for "distribution"
+  // If uniform, no parameters
+  // If zipfian, allow parameter for constant "zipf:0.5" for example.
+  
+  // number of cowns
+  // cown popularity
+  // service time distribution
+  harness.run(test_body, argc, argv);
 
   return 0;
 }

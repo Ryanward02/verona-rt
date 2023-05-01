@@ -28,7 +28,7 @@ public:
 class Generator
 {
 public:
-    
+    virtual int nextValue() {};
     void setLastValue(long lastValue) {};
 };
 
@@ -131,7 +131,7 @@ public:
         return ret;
     };
 
-    int nextValue() {
+    int nextValue() override {
         return nextInt(items);
     };
 };
@@ -181,7 +181,7 @@ public:
         }
     }
 
-    int nextValue() {
+    int nextValue() override {
         int nv = gen.nextValue();
         int ret = (int)(min + FNVHash(std::to_string(nv)) % itemcount);
         setLastValue(ret);
@@ -193,6 +193,26 @@ public:
     }
 
 
+};
+
+class UniformGenerator : public Generator
+{
+public:
+    
+    std::default_random_engine generator;
+    std::uniform_int_distribution<int> distribution;
+
+    UniformGenerator(int max) : UniformGenerator(0, max) {};
+
+    UniformGenerator(int min, int max) {
+        unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+        this->generator = std::default_random_engine(seed);
+        this->distribution = std::uniform_int_distribution(min, max);
+    }
+
+    int nextValue() override {
+        return distribution(generator);
+    }
 };
 
 int cmpDouble(const void *a,const void *b) {
