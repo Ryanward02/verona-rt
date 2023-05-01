@@ -28,7 +28,7 @@ fig, (plot, plot2) = plt.subplots(2)
 plot2.plot([i for i in range(len(throughputList))], throughputList)
 plot2.axhline(y = avgThroughput, color="r")
 plt.sca(plot2)
-plt.yticks([0, throughputList[int(len(throughputList) / 4)], throughputList[int(len(throughputList) / 4) * 3], max(throughputList), avgThroughput])
+plt.yticks([0, max(throughputList), avgThroughput])
 plt.ylabel("rolling throughput (behaviours/second)")
 plt.xlabel("time (seconds)")
 

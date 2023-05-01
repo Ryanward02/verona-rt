@@ -28,7 +28,7 @@ fi
 
 
 # We can then call the benchmark from the build folder, since ninja has created executables for us.
-./test/bm-con-lotsofcowns --cownPop uniform --servTime uniform --cownCount 1000
+./test/bm-con-lotsofcowns --cownPop zipfian[2] --servTime zipfian[2] --cownCount 1000 --whenCount 2000
 
 # Or we can run the test with ctest
 # cd test

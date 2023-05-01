@@ -25,16 +25,36 @@ using namespace verona::cpp;
 void sub_array_random(std::vector<cown_ptr<cown>>* arr, std::vector<cown_ptr<cown>>* sub_arr, int count, bool uniform, double zipfConstant = 0.99) {
   Generator *gen;
   if (uniform) {
-    gen = new UniformGenerator(0, arr->size()-1);
+    gen = new UniformGenerator(0, int(arr->size()) - 1);
   } else {
     gen = new ZipfianGenerator(0, arr->size() - 1, zipfConstant);
   }
   for (int i = 0; i <= count; i++) {
     int index = gen->nextValue();
-    // int index = i;
     cown_ptr<cown> ptr = arr->at(index);
     sub_arr->emplace_back(ptr);
   }
+}
+
+double parseZipfInput(char *input) {
+  // input[0-7] = "zipfian<"
+  // input[8-n] = "number"
+  // input[n+1] = ">"
+  // extract 8-n and turn into double. Need to find n+1 = >;
+  int n = 8;
+  while (input[n] != ']') {
+    n++;
+  }
+
+  char zipfNo[n-8];
+  for (int i = 0; i < n-8; i++) {
+    zipfNo[i] = input[i+8];
+  }
+
+  char *ptr;
+
+  return strtod(zipfNo, &ptr);
+
 }
 
 /**
@@ -91,32 +111,41 @@ void test_body(int argc, char** argv)
 
   bool uniform_cowns = false;
   double cownConstant = double(2);
-  bool uniform_servicetime = true;
-  bool servConstant = double(2);
+  bool uniform_servicetime = false;
+  double servConstant = double(2);
   int no_of_cowns = int(1000);
+  int no_of_whens = int(1000);
 
+
+  // Parsing cmd inputs. ASSUMING VALID INPUT IF EXISTS.
+  // Input is format: ./lotsofcowns --cownPop uniform|zipfian[const] --cownCount no_of_cowns --whenCount no_of_whens --servTime uniform|zipfian[const].
   for (int i = 0; i < argc; i++) {
     if (strcmp(argv[i], "--cownPop") == 0) {
       if (strcmp(argv[i+1], "uniform") == 0) {
         uniform_cowns = true;
         std::cout << "uniform cown population" << std::endl;
-        // Set *gen = UniformGenerator
       } else {
-        // Get zipfconstant from <> parsing
+        cownConstant = parseZipfInput(argv[i+1]);
         std::cout << "zipfian cown population with zipfian constant:" << std::to_string(cownConstant) << std::endl;
       }
     }
     if (strcmp(argv[i], "--cownCount") == 0) {
-      // Need to create integer parser or find implementation
       std::cout << argv[i+1] << " cowns" << std::endl;
       no_of_cowns = atoi(argv[i+1]);
     }
+    if (strcmp(argv[i], "--whenCount") == 0) {
+      std::cout << argv[i+1] << " when blocks" << std::endl;
+      no_of_whens = atoi(argv[i+1]);
+    }
     if (strcmp(argv[i], "--servTime") == 0) {
-      if (strcmp(argv[i+1], "uniform service time") != 0) {
-        uniform_servicetime = false;
+      if (strcmp(argv[i+1], "uniform") == 0) {
+        std::cout << "uniform service time" << std::endl;
+        uniform_servicetime = true;
       } else {
         // Do same as cownPop but for serviceTime Generator
-        std::cout << "zipfian service time with zipfian constant:" << std::to_string(cownConstant) << std::endl;
+        std::cout << argv[i+1] << std::endl;
+        servConstant = parseZipfInput(argv[i+1]);
+        std::cout << "zipfian service time with zipfian constant:" << std::to_string(servConstant) << std::endl;
       }
     }
   }
@@ -147,7 +176,7 @@ void test_body(int argc, char** argv)
   if (uniform_cowns) {
     gen = new UniformGenerator(no_of_cowns);
   } else {
-    gen = new ScrambledZipfianGenerator(0, no_of_cowns, cownConstant);
+    gen = new ScrambledZipfianGenerator(0, int(no_of_cowns-1), cownConstant);
   }
 
   // UniformGenerator *gen = new UniformGenerator(0, no_of_cowns);
@@ -161,13 +190,9 @@ void test_body(int argc, char** argv)
     timeDist = new ZipfianGenerator(10, 30, servConstant);
   }
 
-  // Define how many when blocks you wish to call.
-  const int no_of_whens = 1000;
-
   std::vector<double>* timeList = new std::vector<double>;
   timeList->reserve(no_of_whens);
   
-  // std::cout << "size: " << timeList->size() << std::endl;
   
   for (int i = 0; i < no_of_whens; i++) {
 
@@ -177,13 +202,12 @@ void test_body(int argc, char** argv)
 
     sub_array_random(cowns, sub_arr, sub_arr_size, uniform_cowns, cownConstant);
 
-
     t1 = high_resolution_clock::now();
 
     when(*sub_arr->data()) << [=, &lock](auto){
 
       double time = (double)timeDist->nextValue() / (double)200;
-      
+      std::cout << time << " service" << std::endl;
       // Gets zipf-dist rand.var between 0.05 and 0.15.
        
       // std::cout << time << " spin " << std::endl;
@@ -194,18 +218,17 @@ void test_body(int argc, char** argv)
       
       high_resolution_clock::time_point t2 = high_resolution_clock::now();
       duration<double> total = duration_cast<duration<double>>(t2 - t1);
-      pthread_mutex_lock(&lock);
+      
 
-      // std::cout << timeList->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
       // if (fmod(double(timeList->size()) / double(no_of_whens) * double(100), 10) == 0) {
       //   std::cout << (double)timeList->size() / (double)no_of_whens * double(100) << " percent complete" << std::endl;
       // }
       
-      std::cout << timeList->size() << " of " << no_of_whens << std::endl;
-
+      pthread_mutex_lock(&lock);
+      std::cout << timeList->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
       timeList->emplace_back(total.count());
 
-      if (timeList->size() == no_of_whens - 1) {
+      if (int(timeList->size()) == int(no_of_whens)) {
         std::cout << printTlist(timeList, timeList->size()) << std::endl;
         std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList, timeList->size());
         std::ofstream out("../test.txt");
