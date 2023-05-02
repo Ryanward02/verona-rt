@@ -37,9 +37,9 @@ void sub_array_random(std::vector<cown_ptr<cown>>* arr, std::vector<cown_ptr<cow
 }
 
 double parseZipfInput(char *input) {
-  // input[0-7] = "zipfian<"
+  // input[0-7] = "zipfian["
   // input[8-n] = "number"
-  // input[n+1] = ">"
+  // input[n+1] = "]"
   // extract 8-n and turn into double. Need to find n+1 = >;
   int n = 8;
   while (input[n] != ']') {
@@ -57,6 +57,46 @@ double parseZipfInput(char *input) {
 
 }
 
+void parseServiceTime(char *input, bool fixed_servicetime, int *serviceTimes) {
+  int returnVal[3];
+  if (fixed_servicetime) {
+    // "fixed[" is length 6, so index 6 is first value of time;
+    int n = 0; 
+    while (input[n] != ']') {
+      n++;
+    }
+
+    char timeVal[n-6];
+    
+    for (int i = 0; i < INT_MAX; i++) {
+      if (input[i] == ']') {
+        break;
+      }
+      timeVal[i] = input[i+6];
+    }
+    serviceTimes[0] = atoi(timeVal);
+
+  } else {
+    if (input[0] == 'b') {
+      // bimodal
+      std::string s = input;
+      s.erase(0, s.find('[') + 1);
+      
+      std::string low_time = s.substr(0, s.find(':'));
+      s.erase(0, s.find(':') + 1);
+      std::string high_time = s.substr(0, s.find(':'));
+      s.erase(0, s.find(':') + 1);
+      std::string percentage = s.substr(0, s.find(']'));
+
+      serviceTimes[0] = atoi(low_time.c_str());
+      serviceTimes[1] = atoi(high_time.c_str());
+      serviceTimes[2] = atoi(percentage.c_str());
+
+
+    }
+  }
+}
+
 /**
  * Spins for the time given via the 'seconds' parameter.
 */
@@ -70,6 +110,8 @@ auto spin(double seconds) {
   }
 
 }
+
+
 
 /**
  * Function to create a printable list of doubles. 
@@ -111,14 +153,13 @@ void test_body(int argc, char** argv)
 
   bool uniform_cowns = false;
   double cownConstant = double(2);
-  bool uniform_servicetime = false;
-  double servConstant = double(2);
+  bool fixed_servicetime = true;
+  int *serviceTimes;
   int no_of_cowns = int(1000);
   int no_of_whens = int(1000);
 
-
   // Parsing cmd inputs. ASSUMING VALID INPUT IF EXISTS.
-  // Input is format: ./lotsofcowns --cownPop uniform|zipfian[const] --cownCount no_of_cowns --whenCount no_of_whens --servTime uniform|zipfian[const].
+  // Input is format: ./lotsofcowns --cownPop uniform|zipfian[const] --cownCount no_of_cowns --whenCount no_of_whens --servTime fixed[time]|expo|bimodal[time_low, time_high, ratio].
   for (int i = 0; i < argc; i++) {
     if (strcmp(argv[i], "--cownPop") == 0) {
       if (strcmp(argv[i+1], "uniform") == 0) {
@@ -138,19 +179,20 @@ void test_body(int argc, char** argv)
       no_of_whens = atoi(argv[i+1]);
     }
     if (strcmp(argv[i], "--servTime") == 0) {
-      if (strcmp(argv[i+1], "uniform") == 0) {
-        std::cout << "uniform service time" << std::endl;
-        uniform_servicetime = true;
+      // Fixed, bimodal, e.g. fixed[10] (input in milliseconds)
+      
+      if (argv[i+1][0] == 'f') {
+        fixed_servicetime = true;
+        std::cout << "fixed service time" << std::endl;
       } else {
-        // Do same as cownPop but for serviceTime Generator
-        std::cout << argv[i+1] << std::endl;
-        servConstant = parseZipfInput(argv[i+1]);
-        std::cout << "zipfian service time with zipfian constant:" << std::to_string(servConstant) << std::endl;
+        fixed_servicetime = false;
+        std::cout << "Bimodal service time" << std::endl;
       }
+      parseServiceTime(argv[i+1], fixed_servicetime, serviceTimes);
+
+      std::cout << serviceTimes[1] << std::endl;
     }
   }
-
-
 
   std::vector<cown_ptr<cown>> *cowns = new std::vector<cown_ptr<cown>>;
   for (int i = 0; i < no_of_cowns; i++) {
@@ -184,10 +226,11 @@ void test_body(int argc, char** argv)
   
   Generator *timeDist;
 
-  if (uniform_servicetime) {
-    timeDist = new UniformGenerator(10, 30);
+  if (fixed_servicetime) {
+    timeDist = new FixedGenerator(serviceTimes[0]);
   } else {
-    timeDist = new ZipfianGenerator(10, 30, servConstant);
+    std::cout << "ServiceTimes: " << serviceTimes[0] << ", " << serviceTimes[1] << ", " << serviceTimes[2] << std::endl;
+    timeDist = new BimodalGenerator(serviceTimes[0], serviceTimes[1], serviceTimes[2]);
   }
 
   std::vector<double>* timeList = new std::vector<double>;
@@ -206,11 +249,9 @@ void test_body(int argc, char** argv)
 
     when(*sub_arr->data()) << [=, &lock](auto){
 
-      double time = (double)timeDist->nextValue() / (double)200;
-      std::cout << time << " service" << std::endl;
-      // Gets zipf-dist rand.var between 0.05 and 0.15.
+      double time = double(timeDist->nextValue()) / (double)1000; // timeDist gives value in milliseconds; must convert to seconds.
        
-      // std::cout << time << " spin " << std::endl;
+      std::cout << time << " spin " << std::endl;
       
       // double time = 0.1;
 

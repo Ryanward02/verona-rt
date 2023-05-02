@@ -28,7 +28,7 @@ fi
 
 
 # We can then call the benchmark from the build folder, since ninja has created executables for us.
-./test/bm-con-lotsofcowns --cownPop zipfian[2] --servTime zipfian[2] --cownCount 1000 --whenCount 2000
+./test/bm-con-lotsofcowns --cownPop zipfian[2] --servTime bimodal[10:1000:50] --cownCount 100 --whenCount 500
 
 # Or we can run the test with ctest
 # cd test
@@ -41,3 +41,9 @@ fi
 # array of samples
 #   per thread variables
 #   thread local 
+
+# Inter-arrival distribution
+#  Poisson (exponential) gaps
+
+# Verona Runtime
+#  Check Scheduling code. Code behind when. What happens when when() is called.

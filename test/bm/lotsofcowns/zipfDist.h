@@ -215,6 +215,42 @@ public:
     }
 };
 
+class BimodalGenerator : public Generator {
+public:
+    int low_time;
+    int high_time;
+    int percentage;
+
+    BimodalGenerator(int low_time, int high_time, int percentage) {
+        this->low_time = low_time;
+        this->high_time = high_time;
+        this->percentage = percentage;
+    }
+
+    int nextValue() override {
+        double randomVal = (double)rand() / (double)RAND_MAX;
+        if (randomVal * 100.0 > (double)percentage) {
+            return high_time;
+        } else {
+            return low_time;
+        }
+    }
+
+};
+
+class FixedGenerator : public Generator {
+public:
+    int outputVal;
+
+    FixedGenerator(int outputVal) {
+        this->outputVal = outputVal;
+    };
+
+    int nextValue() override {
+        return outputVal;
+    }
+};
+
 int cmpDouble(const void *a,const void *b) {
   double *x = (double *) a;
   double *y = (double *) b;

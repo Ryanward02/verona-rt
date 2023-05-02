@@ -23,7 +23,6 @@ print(throughputList)
 
 total_count = len(values)
 fig, (plot, plot2) = plt.subplots(2)
-# plot2 = plt
 
 plot2.plot([i for i in range(len(throughputList))], throughputList)
 plot2.axhline(y = avgThroughput, color="r")
@@ -64,7 +63,5 @@ plot.plot([values[int((total_count / 100) * 75 - 1)] for i in range(100)], [0.74
 
 plot.scatter(values[int((total_count / 100) * 95 - 1)], 0.95, color="red")
 plot.plot([values[int((total_count / 100) * 95 - 1)] for i in range(100)], [0.94 for i in range(100)], alpha=0.3)
-
-
 
 plt.show()
