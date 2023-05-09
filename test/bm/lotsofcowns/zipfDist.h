@@ -238,6 +238,42 @@ public:
 
 };
 
+class ExponentialGenerator : public Generator {
+public:
+    int base;
+    int exponent_start;
+    int repeat_exponent;
+
+    int no_of_repeats = 0;
+    int cur_val;
+
+    ExponentialGenerator(int exponent_increment) : ExponentialGenerator(2, 1, 1) {};
+
+    ExponentialGenerator(int base, int repeat_exponent) : ExponentialGenerator(base, 1, repeat_exponent) {};
+
+    ExponentialGenerator(int base, int exponent_start, int repeat_exponent) {
+        this->base = base;
+        this->exponent_start = exponent_start;
+        this->repeat_exponent = repeat_exponent;
+            
+        cur_val = 1;
+        for (int i = 0; i < exponent_start; i++) {
+            cur_val *= base;
+        }
+    };
+
+    int nextValue() override {
+        if (no_of_repeats < repeat_exponent) {
+            no_of_repeats += 1;
+            return cur_val;
+        } else {
+            no_of_repeats = 0;
+            cur_val *= base;
+            return cur_val;
+        }
+    }
+};
+
 class FixedGenerator : public Generator {
 public:
     int outputVal;

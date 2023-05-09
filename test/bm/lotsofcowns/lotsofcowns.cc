@@ -77,8 +77,8 @@ void parseServiceTime(char *input, bool fixed_servicetime, int *serviceTimes) {
     serviceTimes[0] = atoi(timeVal);
 
   } else {
-    if (input[0] == 'b') {
-      // bimodal
+    
+      // bimodal or exponential, both take 3 args (and s.find('[') gets rid of the text defining which for this parsing).
       std::string s = input;
       s.erase(0, s.find('[') + 1);
       
@@ -91,9 +91,6 @@ void parseServiceTime(char *input, bool fixed_servicetime, int *serviceTimes) {
       serviceTimes[0] = atoi(low_time.c_str());
       serviceTimes[1] = atoi(high_time.c_str());
       serviceTimes[2] = atoi(percentage.c_str());
-
-
-    }
   }
 }
 
@@ -154,20 +151,22 @@ void test_body(int argc, char** argv)
   bool uniform_cowns = false;
   double cownConstant = double(2);
   bool fixed_servicetime = true;
+  bool expo_servicetime = false;
   int *serviceTimes;
   int no_of_cowns = int(1000);
   int no_of_whens = int(1000);
 
   // Parsing cmd inputs. ASSUMING VALID INPUT IF EXISTS.
-  // Input is format: ./lotsofcowns --cownPop uniform|zipfian[const] --cownCount no_of_cowns --whenCount no_of_whens --servTime fixed[time]|expo|bimodal[time_low, time_high, ratio].
+  // Input is format: ./lotsofcowns --cownPop uniform|zipfian[const] --cownCount no_of_cowns --whenCount no_of_whens 
+  //                    --servTime fixed[time] | expo[base,initial_exponent,repeat_exponent] | bimodal[time_low, time_high, ratio].
   for (int i = 0; i < argc; i++) {
     if (strcmp(argv[i], "--cownPop") == 0) {
       if (strcmp(argv[i+1], "uniform") == 0) {
         uniform_cowns = true;
-        std::cout << "uniform cown population" << std::endl;
+        std::cout << "Uniform Cown Population" << std::endl;
       } else {
         cownConstant = parseZipfInput(argv[i+1]);
-        std::cout << "zipfian cown population with zipfian constant:" << std::to_string(cownConstant) << std::endl;
+        std::cout << "Zipfian cown population with constant:" << std::to_string(cownConstant) << std::endl;
       }
     }
     if (strcmp(argv[i], "--cownCount") == 0) {
@@ -182,11 +181,18 @@ void test_body(int argc, char** argv)
       // Fixed, bimodal, e.g. fixed[10] (input in milliseconds)
       
       if (argv[i+1][0] == 'f') {
+        std::cout << argv[i+1] << std::endl;
         fixed_servicetime = true;
-        std::cout << "fixed service time" << std::endl;
+        std::cout << "Fixed Service Time" << std::endl;
       } else {
         fixed_servicetime = false;
-        std::cout << "Bimodal service time" << std::endl;
+        if (argv[i+1][0] == 'b') {
+          expo_servicetime = false;
+          std::cout << "Bimodal Service Time" << std::endl;
+        } else {
+          expo_servicetime = true;
+          std::cout << "Exponential Service Time" << std::endl;
+        }
       }
       parseServiceTime(argv[i+1], fixed_servicetime, serviceTimes);
 
@@ -229,8 +235,11 @@ void test_body(int argc, char** argv)
   if (fixed_servicetime) {
     timeDist = new FixedGenerator(serviceTimes[0]);
   } else {
-    std::cout << "ServiceTimes: " << serviceTimes[0] << ", " << serviceTimes[1] << ", " << serviceTimes[2] << std::endl;
-    timeDist = new BimodalGenerator(serviceTimes[0], serviceTimes[1], serviceTimes[2]);
+    if (expo_servicetime) {
+      timeDist = new ExponentialGenerator(serviceTimes[0], serviceTimes[1], serviceTimes[2]);
+    } else {
+      timeDist = new BimodalGenerator(serviceTimes[0], serviceTimes[1], serviceTimes[2]);
+    }
   }
 
   std::vector<double>* timeList = new std::vector<double>;
@@ -272,9 +281,6 @@ void test_body(int argc, char** argv)
       if (int(timeList->size()) == int(no_of_whens)) {
         std::cout << printTlist(timeList, timeList->size()) << std::endl;
         std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList, timeList->size());
-        std::ofstream out("../test.txt");
-        out << printTlist(timeList, timeList->size());
-        out.close();
         pthread_mutex_unlock(&lock);
         system(bashCall.c_str());
       } else {
@@ -290,13 +296,7 @@ void test_body(int argc, char** argv)
 int main(int argc, char** argv) {
   
   SystematicTestHarness harness(argc, argv);
-  // Add command line input for "distribution"
-  // If uniform, no parameters
-  // If zipfian, allow parameter for constant "zipf:0.5" for example.
   
-  // number of cowns
-  // cown popularity
-  // service time distribution
   harness.run(test_body, argc, argv);
 
   return 0;
