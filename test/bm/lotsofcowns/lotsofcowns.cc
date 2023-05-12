@@ -59,38 +59,30 @@ double parseZipfInput(char *input) {
 
 void parseServiceTime(char *input, bool fixed_servicetime, int *serviceTimes) {
   int returnVal[3];
-  if (fixed_servicetime) {
+  // Fixed or exponential take 1 input
+  if (fixed_servicetime || input[0] == 'e' || input[0] == 'E') {
     // "fixed[" is length 6, so index 6 is first value of time;
-    int n = 0; 
-    while (input[n] != ']') {
-      n++;
-    }
+    std::string s = input;
+    // remove naming
+    s.erase(0, s.find('[') + 1);
+    std::string serviceTime = s.substr(0, s.find(']'));
 
-    char timeVal[n-6];
-    
-    for (int i = 0; i < INT_MAX; i++) {
-      if (input[i] == ']') {
-        break;
-      }
-      timeVal[i] = input[i+6];
-    }
-    serviceTimes[0] = atoi(timeVal);
+    serviceTimes[0] = atoi(serviceTime.c_str());
 
   } else {
+    // Bimodal takes 3 inputs
+    std::string s = input;
+    s.erase(0, s.find('[') + 1);
     
-      // bimodal or exponential, both take 3 args (and s.find('[') gets rid of the text defining which for this parsing).
-      std::string s = input;
-      s.erase(0, s.find('[') + 1);
-      
-      std::string low_time = s.substr(0, s.find(':'));
-      s.erase(0, s.find(':') + 1);
-      std::string high_time = s.substr(0, s.find(':'));
-      s.erase(0, s.find(':') + 1);
-      std::string percentage = s.substr(0, s.find(']'));
+    std::string low_time = s.substr(0, s.find(':'));
+    s.erase(0, s.find(':') + 1);
+    std::string high_time = s.substr(0, s.find(':'));
+    s.erase(0, s.find(':') + 1);
+    std::string percentage = s.substr(0, s.find(']'));
 
-      serviceTimes[0] = atoi(low_time.c_str());
-      serviceTimes[1] = atoi(high_time.c_str());
-      serviceTimes[2] = atoi(percentage.c_str());
+    serviceTimes[0] = atoi(low_time.c_str());
+    serviceTimes[1] = atoi(high_time.c_str());
+    serviceTimes[2] = atoi(percentage.c_str());
   }
 }
 
@@ -195,8 +187,6 @@ void test_body(int argc, char** argv)
         }
       }
       parseServiceTime(argv[i+1], fixed_servicetime, serviceTimes);
-
-      std::cout << serviceTimes[1] << std::endl;
     }
   }
 
@@ -236,7 +226,7 @@ void test_body(int argc, char** argv)
     timeDist = new FixedGenerator(serviceTimes[0]);
   } else {
     if (expo_servicetime) {
-      timeDist = new ExponentialGenerator(serviceTimes[0], serviceTimes[1], serviceTimes[2]);
+      timeDist = new ExponentialGenerator(serviceTimes[0]);
     } else {
       timeDist = new BimodalGenerator(serviceTimes[0], serviceTimes[1], serviceTimes[2]);
     }
