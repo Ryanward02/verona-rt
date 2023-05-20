@@ -16,7 +16,7 @@
 class cown_obj
 {
 public:
-    cown_obj() {
+    ~cown_obj() {
         std::cout << "cown" << std::endl;
     }
 };
@@ -38,14 +38,6 @@ auto test_body() {
     cown_ptr<cown_obj> c1 = make_cown<cown_obj>();
     cown_ptr<cown_obj> c2 = make_cown<cown_obj>();
     cown_ptr<cown_obj> c3 = make_cown<cown_obj>();
-
-    std::vector<cown_ptr<cown_obj>> cown_list_1 = std::vector<cown_ptr<cown_obj>>();
-    std::vector<cown_ptr<cown_obj>> cown_list_2 = std::vector<cown_ptr<cown_obj>>();
-
-    cown_list_1.emplace_back(c1);
-
-    cown_list_2.emplace_back(c2);
-    cown_list_2.emplace_back(c3);
 
     high_resolution_clock::time_point t1 = high_resolution_clock::now();
     // WARNING: cown_list_1, cown_list_2 must not be empty.
