@@ -100,5 +100,34 @@ namespace verona::rt
 
       BehaviourCore::schedule<transfer>(body);
     }
+
+    template<
+      class Be1,
+      class Be2,
+      TransferOwnership transfer = NoTransfer>
+    static void schedule2(size_t count1, Request* requests1, Be1&& f1, size_t count2, Request* requests2, Be2&& f2)
+    {
+      Logging::cout() << "Schedule behaviours of type: " << typeid(Be1).name() << " and " << typeid(Be2).name()
+                      << Logging::endl;
+
+      auto body1 = Behaviour::make<Be1>(count1, std::forward<Be1>(f1));
+      auto body2 = Behaviour::make<Be2>(count1, std::forward<Be2>(f2));
+
+      auto* slots1 = body1->get_slots();
+      for (size_t i = 0; i < count1; i++)
+      {
+        new (&slots1[i]) Slot(requests1[i].cown());
+      }
+
+      auto* slots2 = body2->get_slots();
+      for (size_t i = 0; i < count2; i++)
+      {
+        new (&slots2[i]) Slot(requests2[i].cown());
+      }
+
+      BehaviourCore::schedule2<transfer>(body1, body2);
+    }
+
+    
   };
 } // namespace verona::rt

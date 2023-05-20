@@ -357,6 +357,126 @@ namespace verona::rt
       body->resolve(ec);
     }
 
+
+    class body_cown_class
+    {
+    public:
+      BehaviourCore *body;
+      Slot* slot;
+      
+      body_cown_class(BehaviourCore* body1, Slot* slot) {
+        this->body = body1;
+        this->slot = slot;
+      }
+    };
+
+    template<TransferOwnership transfer = NoTransfer>
+    static void schedule2(BehaviourCore* body1, BehaviourCore* body2)
+    {
+      // Same idea as schedule
+      // Create "unified slots" consisting of both body1 slots and body2 slots
+      auto count1 = body1->count;
+      auto count2 = body2->count;
+      
+      auto slots1 = body1->get_slots();
+      auto slots2 = body2->get_slots();
+
+      std::vector<body_cown_class *> slotsBodyMap;
+      slotsBodyMap.reserve(sizeof(body_cown_class) * (count1 + count2));
+
+      for (int i = 0; i < count1; i++) {
+        slotsBodyMap.emplace_back(new body_cown_class(body1, &slots1[i]));
+      }
+      for (int i = 0; i < count2; i++) {
+        slotsBodyMap.emplace_back(new body_cown_class(body2, &slots2[i]));
+      }
+
+      StackArray<size_t> indexes(count1 + count2);
+      for (size_t i = 0; i < (count1 + count2); i++)
+        indexes[i] = i;
+
+      auto compare = [slotsBodyMap](const size_t i, const size_t j) {
+#ifdef USE_SYSTEMATIC_TESTING
+        return slotsBodyMap.at(i)->slot->cown->id() > slotsBodyMap.at(i)->slot->cown->id();
+#else
+        return slotsBodyMap.at(i)->slot->cown > slotsBodyMap.at(j)->slot->cown;
+#endif
+      };
+
+      // Sort the unified slot array
+      if (count1+count2 > 1)
+        std::sort(indexes.get(), indexes.get() + (count1 + count2), compare);
+      
+      size_t ec1 = 1;
+      size_t ec2 = 1;
+
+      // Complete first and second phase based on sorted unified slots
+
+      // Phase 1 (Acquire) combined
+      for (size_t i = 0; i < (count1 + count2); i++)
+      {
+        auto prev = slotsBodyMap.at(indexes[i])->slot->cown->last_slot.exchange(
+          slotsBodyMap.at(indexes[i])->slot, std::memory_order_acq_rel);
+
+        yield();
+
+        if (prev == nullptr)
+        {
+          Logging::cout() << "Acquired cown: " << slotsBodyMap.at(indexes[i])->slot->cown << " for behaviour "
+                          << slotsBodyMap.at(indexes[i])->body << Logging::endl;
+          
+          if (slotsBodyMap.at(indexes[i])->body == body1) {
+            ec1++;
+          } else {
+            ec2++;
+          }
+
+          if (transfer == NoTransfer)
+          {
+            yield();
+            Cown::acquire(slotsBodyMap.at(indexes[i])->slot->cown);
+          }
+          continue;
+        }
+
+        Logging::cout() << "Waiting for cown: " << slotsBodyMap.at(indexes[i])->slot->cown << " from slot " << prev
+                        << " for behaviour " << slotsBodyMap.at(indexes[i])->body << Logging::endl;
+
+        yield();
+        while (prev->is_wait())
+        {
+          // Wait for the previous behaviour to finish adding to first phase.
+          Aal::pause();
+          Systematic::yield_until([prev]() { return !prev->is_wait(); });
+        }
+
+        if (transfer == YesTransfer)
+        {
+          Cown::release(ThreadAlloc::get(), slotsBodyMap.at(indexes[i])->slot->cown);
+        }
+
+        yield();
+        prev->set_behaviour(slotsBodyMap.at(indexes[i])->body);
+        yield();
+      }
+
+      // Phase 2 - Release phase; combined cown list.
+      Logging::cout() << "Release phase for behaviours " << body1 << " and " << body2
+                      << Logging::endl;
+      for (size_t i = 0; i < (count1 + count2); i++)
+      {
+        yield();
+        Logging::cout() << "Setting slot " << slotsBodyMap.at(indexes[i])->slot << " to ready"
+                        << Logging::endl;
+        slotsBodyMap.at(i)->slot->set_ready();
+      }
+
+      yield();
+      body1->resolve(ec1);
+      body2->resolve(ec2);
+    }
+
+
     /**
      * @brief Release all slots in the behaviour.
      *

@@ -405,6 +405,9 @@ namespace verona::cpp
     template<typename...>
     friend class When;
 
+    template<typename T1, typename T2, typename F1, typename F2>
+    friend class When2;
+
   private:
     /// Underlying cown that has been acquired.
     /// Runtime is actually holding this reference count.
