@@ -9,20 +9,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <set>
 
 class cown
 {
-private:
-  int i = 0;
-  // destructor. Not sure when this is called.
 public:
-  cown(int i) {
-    this->i = i;
-  }
+  
   ~cown()
   {
     
-    std::cout << "I'm DEAD : " << std::to_string(i) << std::endl;
+    std::cout << "cown" << std::endl;
   }
 };
 
@@ -112,24 +108,23 @@ public:
                 }
             }
         }
-
+        
+        
         double u = (double)((std::rand() % 1000) / 1000.0);
-        // std::cout << std::to_string(u) << std::endl;
-
         double uz = u * zetan;
 
-
         // if (uz < 1.0) {
-        //     return base;
+        //     ret = base;
         // }
-
-        // if (uz < 1.0 + pow(0.5, this->theta)) {
-        //     return base + 1;
+        // else if (uz < 1.0 + pow(0.5, this->theta)) {
+        //     ret = base + 1;
         // }
-        
+        // else {
         int ret = base + (int)(itemCount * pow(eta * u - eta + 1, alpha));
+        // }
         setLastValue(ret);
         return ret;
+        
     };
 
     int nextValue() override {

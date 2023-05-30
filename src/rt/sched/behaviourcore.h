@@ -381,14 +381,13 @@ namespace verona::rt
       auto slots1 = body1->get_slots();
       auto slots2 = body2->get_slots();
 
-      std::vector<body_cown_class *> slotsBodyMap;
-      slotsBodyMap.reserve(sizeof(body_cown_class) * (count1 + count2));
+      body_cown_class **slotsBodyMap = (body_cown_class **)malloc(sizeof(body_cown_class) * (count1 + count2));
 
       for (int i = 0; i < count1; i++) {
-        slotsBodyMap.emplace_back(new body_cown_class(body1, &slots1[i]));
+        slotsBodyMap[i] = new body_cown_class(body1, &slots1[i]);
       }
       for (int i = 0; i < count2; i++) {
-        slotsBodyMap.emplace_back(new body_cown_class(body2, &slots2[i]));
+        slotsBodyMap[count1 + i] = new body_cown_class(body2, &slots2[i]);
       }
 
       StackArray<size_t> indexes(count1 + count2);
@@ -397,9 +396,9 @@ namespace verona::rt
 
       auto compare = [slotsBodyMap](const size_t i, const size_t j) {
 #ifdef USE_SYSTEMATIC_TESTING
-        return slotsBodyMap.at(i)->slot->cown->id() > slotsBodyMap.at(i)->slot->cown->id();
+        return slotsBodyMap[i]->slot->cown->id() > slotsBodyMap[j]->slot->cown->id();
 #else
-        return slotsBodyMap.at(i)->slot->cown > slotsBodyMap.at(j)->slot->cown;
+        return slotsBodyMap[i]->slot->cown > slotsBodyMap[j]->slot->cown;
 #endif
       };
 
@@ -415,17 +414,17 @@ namespace verona::rt
       // Phase 1 (Acquire) combined
       for (size_t i = 0; i < (count1 + count2); i++)
       {
-        auto prev = slotsBodyMap.at(indexes[i])->slot->cown->last_slot.exchange(
-          slotsBodyMap.at(indexes[i])->slot, std::memory_order_acq_rel);
+        auto prev = slotsBodyMap[indexes[i]]->slot->cown->last_slot.exchange(
+          slotsBodyMap[indexes[i]]->slot, std::memory_order_acq_rel);
 
         yield();
 
         if (prev == nullptr)
         {
-          Logging::cout() << "Acquired cown: " << slotsBodyMap.at(indexes[i])->slot->cown << " for behaviour "
-                          << slotsBodyMap.at(indexes[i])->body << Logging::endl;
+          Logging::cout() << "Acquired cown: " << slotsBodyMap[indexes[i]]->slot->cown << " for behaviour "
+                          << slotsBodyMap[indexes[i]]->body << Logging::endl;
           
-          if (slotsBodyMap.at(indexes[i])->body == body1) {
+          if (slotsBodyMap[indexes[i]]->body == body1) {
             ec1++;
           } else {
             ec2++;
@@ -434,13 +433,13 @@ namespace verona::rt
           if (transfer == NoTransfer)
           {
             yield();
-            Cown::acquire(slotsBodyMap.at(indexes[i])->slot->cown);
+            Cown::acquire(slotsBodyMap[indexes[i]]->slot->cown);
           }
           continue;
         }
 
-        Logging::cout() << "Waiting for cown: " << slotsBodyMap.at(indexes[i])->slot->cown << " from slot " << prev
-                        << " for behaviour " << slotsBodyMap.at(indexes[i])->body << Logging::endl;
+        Logging::cout() << "Waiting for cown: " << slotsBodyMap[indexes[i]]->slot->cown << " from slot " << prev
+                        << " for behaviour " << slotsBodyMap[indexes[i]]->body << Logging::endl;
 
         yield();
         while (prev->is_wait())
@@ -452,11 +451,11 @@ namespace verona::rt
 
         if (transfer == YesTransfer)
         {
-          Cown::release(ThreadAlloc::get(), slotsBodyMap.at(indexes[i])->slot->cown);
+          Cown::release(ThreadAlloc::get(), slotsBodyMap[indexes[i]]->slot->cown);
         }
 
         yield();
-        prev->set_behaviour(slotsBodyMap.at(indexes[i])->body);
+        prev->set_behaviour(slotsBodyMap[indexes[i]]->body);
         yield();
       }
 
@@ -466,9 +465,9 @@ namespace verona::rt
       for (size_t i = 0; i < (count1 + count2); i++)
       {
         yield();
-        Logging::cout() << "Setting slot " << slotsBodyMap.at(indexes[i])->slot << " to ready"
+        Logging::cout() << "Setting slot " << slotsBodyMap[indexes[i]]->slot << " to ready"
                         << Logging::endl;
-        slotsBodyMap.at(i)->slot->set_ready();
+        slotsBodyMap[i]->slot->set_ready();
       }
 
       yield();

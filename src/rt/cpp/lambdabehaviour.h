@@ -72,16 +72,18 @@ namespace verona::rt
   static void schedule_lambda_atomic(T1&& f1, T2&& f2)
   {
     
-    auto w1 = Closure::make([f1 = std::forward<T1>(f1), f2 = std::forward<T2>(f2)](Work* w1) mutable {
-      pthread_t t1, t2;
-      pthread_create(&t1, nullptr, &thread_func<T1>, &f1);
-      pthread_create(&t2, nullptr, &thread_func<T2>, &f2);
-      
-      pthread_join(t1, nullptr);
-      pthread_join(t2, nullptr);
+    auto w1 = Closure::make([f1 = std::forward<T1>(f1)](Work* w1) mutable {
+      f1();
+      return true;
+    });
+
+    auto w2 = Closure::make([f2 = std::forward<T2>(f2)](Work* w2) mutable {
+      f2();
+      return true;
     });
 
     Scheduler::schedule(w1);
+    Scheduler::schedule(w2);
   }
 
   // TODO super minimal version initially, just to get the tests working.

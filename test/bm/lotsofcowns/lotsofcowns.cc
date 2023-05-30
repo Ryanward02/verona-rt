@@ -23,17 +23,18 @@
 
 using namespace verona::cpp;
 void sub_array_random(std::vector<cown_ptr<cown>>* arr, std::vector<cown_ptr<cown>>* sub_arr, int count, bool uniform, double zipfConstant = 0.99) {
-  Generator *gen;
+  Generator *gen = new Generator;
   if (uniform) {
     gen = new UniformGenerator(0, int(arr->size()) - 1);
   } else {
-    gen = new ZipfianGenerator(0, arr->size() - 1, zipfConstant);
+    gen = new ZipfianGenerator(0, int(arr->size()) - 1, zipfConstant);
   }
-  for (int i = 0; i <= count; i++) {
+  for (int i = 0; i < count; i++) {
     int index = gen->nextValue();
     cown_ptr<cown> ptr = arr->at(index);
     sub_arr->emplace_back(ptr);
   }
+  
 }
 
 double parseZipfInput(char *input) {
@@ -116,6 +117,29 @@ std::string printTlist(std::vector<double> *timeList, int length) {
   return ret;
 }
 
+std::string printParallelTlist(std::vector<double> *timeList1, std::vector<double> *timeList2) {
+  
+  std::vector<double> *mergedList = new std::vector<double>;
+
+  for (int i = 0; i < timeList1->size(); i++) {
+    mergedList->emplace_back(timeList1->at(i));
+  }
+  for (int i = 0; i < timeList2->size(); i++) {
+    mergedList->emplace_back(timeList2->at(i));
+  }
+
+  std::cout << mergedList->size() << std::endl;
+  std::sort(mergedList->begin(), mergedList->end());
+
+  std::string ret = "";
+  
+  for (size_t i = 0; i < mergedList->size(); i++) {
+    ret = ret + std::to_string(mergedList->at(i)) + " ";
+  }
+  return ret;
+
+}
+
 /**
  * Main test body. Creates large list of cowns
   * Given no of when blocks, schedules all when blocks
@@ -139,7 +163,7 @@ using namespace verona::cpp;
 using namespace verona::rt;
 void test_body(int argc, char** argv)
 {
-
+  bool parallel = false;
   bool uniform_cowns = false;
   double cownConstant = double(2);
   bool fixed_servicetime = true;
@@ -152,6 +176,10 @@ void test_body(int argc, char** argv)
   // Input is format: ./lotsofcowns --cownPop uniform|zipfian[const] --cownCount no_of_cowns --whenCount no_of_whens 
   //                    --servTime fixed[time] | expo[base,initial_exponent,repeat_exponent] | bimodal[time_low, time_high, ratio].
   for (int i = 0; i < argc; i++) {
+    if (strcmp(argv[i], "--parallel") == 0) {
+      parallel = true;
+      std::cout << "Atomic Schedule, parallel execution" << std::endl;
+    }
     if (strcmp(argv[i], "--cownPop") == 0) {
       if (strcmp(argv[i+1], "uniform") == 0) {
         uniform_cowns = true;
@@ -192,7 +220,7 @@ void test_body(int argc, char** argv)
 
   std::vector<cown_ptr<cown>> *cowns = new std::vector<cown_ptr<cown>>;
   for (int i = 0; i < no_of_cowns; i++) {
-    cowns->emplace_back(make_cown<cown>(i));
+    cowns->emplace_back(make_cown<cown>());
 
   }
 
@@ -214,7 +242,7 @@ void test_body(int argc, char** argv)
   if (uniform_cowns) {
     gen = new UniformGenerator(no_of_cowns);
   } else {
-    gen = new ScrambledZipfianGenerator(0, int(no_of_cowns-1), cownConstant);
+    gen = new ScrambledZipfianGenerator(2, int(no_of_cowns-1), cownConstant);
   }
 
   // UniformGenerator *gen = new UniformGenerator(0, no_of_cowns);
@@ -231,52 +259,128 @@ void test_body(int argc, char** argv)
       timeDist = new BimodalGenerator(serviceTimes[0], serviceTimes[1], serviceTimes[2]);
     }
   }
-
-  std::vector<double>* timeList = new std::vector<double>;
-  timeList->reserve(no_of_whens);
   
-  
-  for (int i = 0; i < no_of_whens; i++) {
+  if (parallel && fixed_servicetime) {
 
-    int sub_arr_size = gen->nextValue();
+    std::vector<double> *timeList1 = new std::vector<double>;
+    timeList1->reserve(no_of_whens / 2);
+    std::vector<double> *timeList2 = new std::vector<double>;
+    timeList2->reserve(no_of_whens / 2);
 
-    std::vector<cown_ptr<cown>>* sub_arr = new std::vector<cown_ptr<cown>>; 
+    
 
-    sub_array_random(cowns, sub_arr, sub_arr_size, uniform_cowns, cownConstant);
+    for (int i = 0; i < (no_of_whens / 2) + 1; i++) {
 
-    t1 = high_resolution_clock::now();
+      t1 = high_resolution_clock::now();
 
-    when(*sub_arr->data()) << [=, &lock](auto){
+      int sub_arr_size = 4;
 
-      double time = double(timeDist->nextValue()) / (double)1000; // timeDist gives value in milliseconds; must convert to seconds.
-       
-      std::cout << time << " spin " << std::endl;
-      
-      // double time = 0.1;
 
-      spin(time);
-      
-      high_resolution_clock::time_point t2 = high_resolution_clock::now();
-      duration<double> total = duration_cast<duration<double>>(t2 - t1);
-      
+      std::vector<cown_ptr<cown>>* sub_arr = new std::vector<cown_ptr<cown>>;
+      std::vector<cown_ptr<cown>>* sub_arr1 = new std::vector<cown_ptr<cown>>(); 
+      std::vector<cown_ptr<cown>>* sub_arr2 = new std::vector<cown_ptr<cown>>();
 
-      // if (fmod(double(timeList->size()) / double(no_of_whens) * double(100), 10) == 0) {
-      //   std::cout << (double)timeList->size() / (double)no_of_whens * double(100) << " percent complete" << std::endl;
-      // }
-      
-      pthread_mutex_lock(&lock);
-      std::cout << timeList->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
-      timeList->emplace_back(total.count());
+      sub_array_random(cowns, sub_arr, sub_arr_size, uniform_cowns, cownConstant);
 
-      if (int(timeList->size()) == int(no_of_whens)) {
-        std::cout << printTlist(timeList, timeList->size()) << std::endl;
-        std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList, timeList->size());
-        pthread_mutex_unlock(&lock);
-        system(bashCall.c_str());
-      } else {
-        pthread_mutex_unlock(&lock);
+      // std::cout << sub_arr_size << std::endl;
+      // std::cout << sub_arr->size() << std::endl;
+
+      for (int i = 0; i < sub_arr->size() / (size_t)2; i++) {
+        sub_arr1->push_back(sub_arr->at(i));
       }
-    };
+      for (int i = sub_arr->size() / (size_t)2; i < sub_arr->size(); i++) {
+        sub_arr2->push_back(sub_arr->at(i));
+      }
+
+      // std::cout << "sub arr 1: " << sub_arr1->size() << std::endl;
+      // std::cout << "sub arr 2: " << sub_arr2->size() << std::endl;
+      
+      when2(*sub_arr1, *sub_arr2, 
+        [=, &lock, &timeList1, &timeList2](auto){
+          double time = double(timeDist->nextValue()) / (double)1000; // timeDist gives value in milliseconds; must convert to seconds.
+                  
+          // double time = 0.1;
+
+          spin(time / double(2));
+          
+          high_resolution_clock::time_point t2 = high_resolution_clock::now();
+          duration<double> total = duration_cast<duration<double>>(t2 - t1);
+          
+          std::cout << "(1): " << timeList1->size() << " of " << no_of_whens / 2 << "\t" << total.count() << " seconds" << std::endl;
+          timeList1->emplace_back(total.count());
+        }, [=, &lock](auto){
+          double time = double(timeDist->nextValue()) / (double)1000; // timeDist gives value in milliseconds; must convert to seconds.
+
+          spin(time / double(2));
+          
+          high_resolution_clock::time_point t2 = high_resolution_clock::now();
+          duration<double> total = duration_cast<duration<double>>(t2 - t1);
+          
+          std::cout << "(2): " << timeList2->size() << " of " << no_of_whens / 2 << "\t" << total.count() << " seconds" << std::endl;
+          timeList2->emplace_back(total.count());
+
+          if (timeList2->size() - 1 == size_t(no_of_whens / 2)) {
+            spin(0.5);
+            std::cout << printParallelTlist(timeList1, timeList2) << std::endl;
+            std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printParallelTlist(timeList1, timeList2);
+            system(bashCall.c_str());
+          }
+        });
+      
+      
+    }
+    
+  } else {
+
+    std::vector<double>* timeList = new std::vector<double>;
+    timeList->reserve(no_of_whens);
+
+    for (int i = 0; i < no_of_whens; i++) {
+
+      int sub_arr_size = gen->nextValue();
+
+      std::vector<cown_ptr<cown>>* sub_arr = new std::vector<cown_ptr<cown>>; 
+
+      sub_array_random(cowns, sub_arr, sub_arr_size, uniform_cowns, cownConstant);
+
+      t1 = high_resolution_clock::now();
+
+      if (parallel) {
+        std::cout << "Cannot be parallel - not fixed service time" << std::endl;
+        return;
+      }
+      when(*sub_arr->data()) << [=, &lock](auto){
+
+        double time = double(timeDist->nextValue()) / (double)1000; // timeDist gives value in milliseconds; must convert to seconds.
+        
+        std::cout << time << " spin " << std::endl;
+        
+        // double time = 0.1;
+
+        spin(time);
+        
+        high_resolution_clock::time_point t2 = high_resolution_clock::now();
+        duration<double> total = duration_cast<duration<double>>(t2 - t1);
+        
+
+        // if (fmod(double(timeList->size()) / double(no_of_whens) * double(100), 10) == 0) {
+        //   std::cout << (double)timeList->size() / (double)no_of_whens * double(100) << " percent complete" << std::endl;
+        // }
+        
+        pthread_mutex_lock(&lock);
+        std::cout << timeList->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
+        timeList->emplace_back(total.count());
+
+        if (int(timeList->size()) == int(no_of_whens)) {
+          std::cout << printTlist(timeList, timeList->size()) << std::endl;
+          std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList, timeList->size());
+          pthread_mutex_unlock(&lock);
+          system(bashCall.c_str());
+        } else {
+          pthread_mutex_unlock(&lock);
+        }
+      };
+    }
   }
 }
 
