@@ -24,13 +24,17 @@
 using namespace verona::cpp;
 void sub_array_random(std::vector<cown_ptr<cown>>* arr, std::vector<cown_ptr<cown>>* sub_arr, int count, bool uniform, double zipfConstant = 0.99) {
   Generator *gen = new Generator;
+  std::set<int> indexes;
   if (uniform) {
     gen = new UniformGenerator(0, int(arr->size()) - 1);
   } else {
-    gen = new ZipfianGenerator(0, int(arr->size()) - 1, zipfConstant);
+    gen = new ZipfianGenerator(0, int(arr->size() - 1), zipfConstant);
   }
   for (int i = 0; i < count; i++) {
     int index = gen->nextValue();
+    while (!indexes.emplace(index).second) {
+      index = gen->nextValue();
+    }
     cown_ptr<cown> ptr = arr->at(index);
     sub_arr->emplace_back(ptr);
   }
@@ -170,6 +174,7 @@ void test_body(int argc, char** argv)
   bool expo_servicetime = false;
   int *serviceTimes;
   int no_of_cowns = int(1000);
+  int sub_arr_size = int(30);
   int no_of_whens = int(1000);
 
   // Parsing cmd inputs. ASSUMING VALID INPUT IF EXISTS.
@@ -189,10 +194,15 @@ void test_body(int argc, char** argv)
         std::cout << "Zipfian cown population with constant:" << std::to_string(cownConstant) << std::endl;
       }
     }
-    if (strcmp(argv[i], "--cownCount") == 0) {
+    if (strcmp(argv[i], "--totalCowns") == 0) {
       std::cout << argv[i+1] << " cowns" << std::endl;
       no_of_cowns = atoi(argv[i+1]);
     }
+    if (strcmp(argv[i], "--behaviourCowns") == 0) {
+      std::cout << argv[i+1] << " cowns" << std::endl;
+      sub_arr_size = atoi(argv[i+1]);
+    }
+
     if (strcmp(argv[i], "--whenCount") == 0) {
       std::cout << argv[i+1] << " when blocks" << std::endl;
       no_of_whens = atoi(argv[i+1]);
@@ -237,14 +247,6 @@ void test_body(int argc, char** argv)
 
   pthread_mutex_init(&lock, NULL);
 
-  Generator *gen;
-
-  if (uniform_cowns) {
-    gen = new UniformGenerator(no_of_cowns);
-  } else {
-    gen = new ScrambledZipfianGenerator(2, int(no_of_cowns-1), cownConstant);
-  }
-
   // UniformGenerator *gen = new UniformGenerator(0, no_of_cowns);
   // ScrambledZipfianGenerator *gen = new ScrambledZipfianGenerator(0, no_of_cowns);
   
@@ -267,14 +269,11 @@ void test_body(int argc, char** argv)
     std::vector<double> *timeList2 = new std::vector<double>;
     timeList2->reserve(no_of_whens / 2);
 
-    
+    bool finished = false;
 
-    for (int i = 0; i < (no_of_whens / 2) + 1; i++) {
+    for (int i = 0; i < (no_of_whens); i++) {
 
       t1 = high_resolution_clock::now();
-
-      int sub_arr_size = 4;
-
 
       std::vector<cown_ptr<cown>>* sub_arr = new std::vector<cown_ptr<cown>>;
       std::vector<cown_ptr<cown>>* sub_arr1 = new std::vector<cown_ptr<cown>>(); 
@@ -292,11 +291,14 @@ void test_body(int argc, char** argv)
         sub_arr2->push_back(sub_arr->at(i));
       }
 
+      std::cout << sub_arr1->size() << std::endl;
+      std::cout << sub_arr2->size() << std::endl;
+
       // std::cout << "sub arr 1: " << sub_arr1->size() << std::endl;
       // std::cout << "sub arr 2: " << sub_arr2->size() << std::endl;
       
       when2(*sub_arr1, *sub_arr2, 
-        [=, &lock, &timeList1, &timeList2](auto){
+        [=, &lock, &finished](auto){
           double time = double(timeDist->nextValue()) / (double)1000; // timeDist gives value in milliseconds; must convert to seconds.
                   
           // double time = 0.1;
@@ -306,9 +308,20 @@ void test_body(int argc, char** argv)
           high_resolution_clock::time_point t2 = high_resolution_clock::now();
           duration<double> total = duration_cast<duration<double>>(t2 - t1);
           
-          std::cout << "(1): " << timeList1->size() << " of " << no_of_whens / 2 << "\t" << total.count() << " seconds" << std::endl;
+          std::cout << "(1): " << timeList1->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
           timeList1->emplace_back(total.count());
-        }, [=, &lock](auto){
+          if (timeList1->size() == size_t(no_of_whens)) {
+            if (finished) {
+              spin(0.5);
+              std::cout << printParallelTlist(timeList1, timeList2) << std::endl;
+              std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printParallelTlist(timeList1, timeList2);
+              system(bashCall.c_str());
+            } else {
+              finished = true;
+            }
+          }
+
+        }, [=, &lock, &finished](auto){
           double time = double(timeDist->nextValue()) / (double)1000; // timeDist gives value in milliseconds; must convert to seconds.
 
           spin(time / double(2));
@@ -316,17 +329,20 @@ void test_body(int argc, char** argv)
           high_resolution_clock::time_point t2 = high_resolution_clock::now();
           duration<double> total = duration_cast<duration<double>>(t2 - t1);
           
-          std::cout << "(2): " << timeList2->size() << " of " << no_of_whens / 2 << "\t" << total.count() << " seconds" << std::endl;
+          std::cout << "(2): " << timeList2->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
           timeList2->emplace_back(total.count());
 
-          if (timeList2->size() - 1 == size_t(no_of_whens / 2)) {
-            spin(0.5);
-            std::cout << printParallelTlist(timeList1, timeList2) << std::endl;
-            std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printParallelTlist(timeList1, timeList2);
-            system(bashCall.c_str());
+          if (timeList2->size() == size_t(no_of_whens)) {
+            if (finished) {
+              spin(0.5);
+              std::cout << printParallelTlist(timeList1, timeList2) << std::endl;
+              std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printParallelTlist(timeList1, timeList2);
+              system(bashCall.c_str());
+            } else {
+              finished = true;
+            }
           }
         });
-      
       
     }
     
@@ -336,8 +352,6 @@ void test_body(int argc, char** argv)
     timeList->reserve(no_of_whens);
 
     for (int i = 0; i < no_of_whens; i++) {
-
-      int sub_arr_size = gen->nextValue();
 
       std::vector<cown_ptr<cown>>* sub_arr = new std::vector<cown_ptr<cown>>; 
 
