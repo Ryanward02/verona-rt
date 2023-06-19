@@ -48,23 +48,6 @@ namespace verona::rt
   template<TransferOwnership transfer = NoTransfer, typename T1, typename T2>
   static void schedule_lambda_atomic(size_t count1, Request* requests1, T1&& f1, size_t count2, Request* requests2, T2&& f2)
   {
-    // size_t count = count1 + count2;
-    // Request requests[count1 + count2];
-
-    // std::copy(requests1, requests1 + count1, requests);
-    // std::copy(requests2, requests2 + count2, requests + count1);
-
-    // auto w1 = [f1 = std::forward<T1>(f1), f2 = std::forward<T2>(f2)]() mutable {
-    //   pthread_t t1, t2;
-    //   pthread_create(&t1, nullptr, &thread_func<T1>, &f1);
-    //   pthread_create(&t2, nullptr, &thread_func<T2>, &f2);
-      
-    //   pthread_join(t1, nullptr);
-    //   pthread_join(t2, nullptr);
-    // };
-
-    // Behaviour::schedule<decltype(w1), transfer>(count, requests, w1);
-
     Behaviour::schedule2<T1, T2, transfer>(count1, requests1, std::move(f1), count2, requests2, std::move(f2));
   }
 

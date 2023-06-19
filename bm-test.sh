@@ -27,24 +27,25 @@ then
 fi
 
 
-# We can then call the benchmark from the build folder, since ninja has created executables for us.
-./test/bm-con-lotsofcowns --cownPop zipfian[2] --servTime fixed[100] --totalCowns 500 --behaviourCowns 40 --whenCount 500 --parallel
-# ./test/bm-con-testingimp
 
-# Or we can run the test with ctest
-# cd test
-# ctest -R bm-con-lotsofcowns
+for totalCowns in 100
+do
+    for cownPop in "zipfian[2]" 
+    do
+        for behaviourCowns in 15
+        do
+            for whenCount in 200
+            do
+                for servTime in "fixed[145]"
+                do
+                    ./test/bm-con-lotsofcowns --cownPop "$cownPop" --servTime "$servTime" --totalCowns "$totalCowns" --behaviourCowns "$behaviourCowns" --whenCount "$whenCount" --notParallel
+                    ./test/bm-con-lotsofcowns --cownPop "$cownPop" --servTime "$servTime" --totalCowns "$totalCowns" --behaviourCowns "$behaviourCowns" --whenCount "$whenCount" --parallel
 
-# Notes:
-# Spinning time
-# Cown selection (popularity & no of cowns/behaviours)
-# Zipfian distribution
-# array of samples
-#   per thread variables
-#   thread local 
+                done
+            done
+        done
+    done
+done
 
-# Inter-arrival distribution
-#  Poisson (exponential) gaps
-
-# Verona Runtime
-#  Check Scheduling code. Code behind when. What happens when when() is called.
+# USAGE: ./test/bm-con-lotsofcowns --cownPop uniform|zipfian[zipfConst] --servTime fixed[ms]|bimodal[fast|slow|pct]|exp[lambda] --totalCowns no_of_cowns --behaviourCowns PERCENTAGE_PER_BEHAVIOUR --whenCount no_of_behaviours --parallel|--notParallel
+# ./test/bm-con-lotsofcowns --cownPop "$cownPop" --servTime "$servTime" --totalCowns "$totalCowns" --behaviourCowns "$behaviourCowns" --whenCount "$whenCount" --notParallel

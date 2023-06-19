@@ -38,7 +38,7 @@ void sub_array_random(std::vector<cown_ptr<cown>>* arr, std::vector<cown_ptr<cow
     cown_ptr<cown> ptr = arr->at(index);
     sub_arr->emplace_back(ptr);
   }
-  
+
 }
 
 double parseZipfInput(char *input) {
@@ -62,8 +62,7 @@ double parseZipfInput(char *input) {
 
 }
 
-void parseServiceTime(char *input, bool fixed_servicetime, int *serviceTimes) {
-  int returnVal[3];
+void parseServiceTime(char *input, bool fixed_servicetime, int *serviceTime1, int *serviceTime2, int *serviceTime3) {
   // Fixed or exponential take 1 input
   if (fixed_servicetime || input[0] == 'e' || input[0] == 'E') {
     // "fixed[" is length 6, so index 6 is first value of time;
@@ -71,9 +70,7 @@ void parseServiceTime(char *input, bool fixed_servicetime, int *serviceTimes) {
     // remove naming
     s.erase(0, s.find('[') + 1);
     std::string serviceTime = s.substr(0, s.find(']'));
-
-    serviceTimes[0] = atoi(serviceTime.c_str());
-
+    *serviceTime1 = atoi(serviceTime.c_str());
   } else {
     // Bimodal takes 3 inputs
     std::string s = input;
@@ -85,9 +82,9 @@ void parseServiceTime(char *input, bool fixed_servicetime, int *serviceTimes) {
     s.erase(0, s.find(':') + 1);
     std::string percentage = s.substr(0, s.find(']'));
 
-    serviceTimes[0] = atoi(low_time.c_str());
-    serviceTimes[1] = atoi(high_time.c_str());
-    serviceTimes[2] = atoi(percentage.c_str());
+    *serviceTime1 = atoi(low_time.c_str());
+    *serviceTime2 = atoi(high_time.c_str());
+    *serviceTime3 = atoi(percentage.c_str());
   }
 }
 
@@ -132,7 +129,7 @@ std::string printParallelTlist(std::vector<double> *timeList1, std::vector<doubl
     mergedList->emplace_back(timeList2->at(i));
   }
 
-  std::cout << mergedList->size() << std::endl;
+  // std::cout << mergedList->size() << std::endl;
   std::sort(mergedList->begin(), mergedList->end());
 
   std::string ret = "";
@@ -172,15 +169,23 @@ void test_body(int argc, char** argv)
   double cownConstant = double(2);
   bool fixed_servicetime = true;
   bool expo_servicetime = false;
-  int *serviceTimes;
+  int serviceTime1 = 100;
+  int serviceTime2 = 1000;
+  int serviceTime3 = 95;
   int no_of_cowns = int(1000);
-  int sub_arr_size = int(30);
+  int sub_arr_percentage = int(5);
   int no_of_whens = int(1000);
+  std::string argString = "";
+
+  
 
   // Parsing cmd inputs. ASSUMING VALID INPUT IF EXISTS.
   // Input is format: ./lotsofcowns --cownPop uniform|zipfian[const] --cownCount no_of_cowns --whenCount no_of_whens 
   //                    --servTime fixed[time] | expo[base,initial_exponent,repeat_exponent] | bimodal[time_low, time_high, ratio].
   for (int i = 0; i < argc; i++) {
+    if (i > 0) {
+      argString = argString + argv[i] + " ";
+    }
     if (strcmp(argv[i], "--parallel") == 0) {
       parallel = true;
       std::cout << "Atomic Schedule, parallel execution" << std::endl;
@@ -200,7 +205,7 @@ void test_body(int argc, char** argv)
     }
     if (strcmp(argv[i], "--behaviourCowns") == 0) {
       std::cout << argv[i+1] << " cowns" << std::endl;
-      sub_arr_size = atoi(argv[i+1]);
+      sub_arr_percentage = atoi(argv[i+1]);
     }
 
     if (strcmp(argv[i], "--whenCount") == 0) {
@@ -224,10 +229,11 @@ void test_body(int argc, char** argv)
           std::cout << "Exponential Service Time" << std::endl;
         }
       }
-      parseServiceTime(argv[i+1], fixed_servicetime, serviceTimes);
+      parseServiceTime(argv[i+1], fixed_servicetime, &serviceTime1, &serviceTime2, &serviceTime3);
     }
   }
 
+  int sub_arr_size = (double)no_of_cowns * ((double)sub_arr_percentage / (double)100);
   std::vector<cown_ptr<cown>> *cowns = new std::vector<cown_ptr<cown>>;
   for (int i = 0; i < no_of_cowns; i++) {
     cowns->emplace_back(make_cown<cown>());
@@ -253,23 +259,23 @@ void test_body(int argc, char** argv)
   Generator *timeDist;
 
   if (fixed_servicetime) {
-    timeDist = new FixedGenerator(serviceTimes[0]);
+    timeDist = new FixedGenerator(serviceTime1);
   } else {
     if (expo_servicetime) {
-      timeDist = new ExponentialGenerator(serviceTimes[0]);
+      timeDist = new ExponentialGenerator(serviceTime1);
     } else {
-      timeDist = new BimodalGenerator(serviceTimes[0], serviceTimes[1], serviceTimes[2]);
+      timeDist = new BimodalGenerator(serviceTime1, serviceTime2, serviceTime3);
     }
   }
+
   
+
   if (parallel && fixed_servicetime) {
 
     std::vector<double> *timeList1 = new std::vector<double>;
-    timeList1->reserve(no_of_whens / 2);
     std::vector<double> *timeList2 = new std::vector<double>;
-    timeList2->reserve(no_of_whens / 2);
 
-    bool finished = false;
+    bool *finished = new bool(false);
 
     for (int i = 0; i < (no_of_whens); i++) {
 
@@ -291,65 +297,61 @@ void test_body(int argc, char** argv)
         sub_arr2->push_back(sub_arr->at(i));
       }
 
-      std::cout << sub_arr1->size() << std::endl;
-      std::cout << sub_arr2->size() << std::endl;
-
       // std::cout << "sub arr 1: " << sub_arr1->size() << std::endl;
       // std::cout << "sub arr 2: " << sub_arr2->size() << std::endl;
       
       when2(*sub_arr1, *sub_arr2, 
-        [=, &lock, &finished](auto){
+        [=](auto){
           double time = double(timeDist->nextValue()) / (double)1000; // timeDist gives value in milliseconds; must convert to seconds.
                   
           // double time = 0.1;
 
+          high_resolution_clock::time_point t2 = high_resolution_clock::now();
           spin(time / double(2));
           
-          high_resolution_clock::time_point t2 = high_resolution_clock::now();
           duration<double> total = duration_cast<duration<double>>(t2 - t1);
           
           std::cout << "(1): " << timeList1->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
+          // pthread_mutex_lock(&lock);
           timeList1->emplace_back(total.count());
           if (timeList1->size() == size_t(no_of_whens)) {
-            if (finished) {
-              spin(0.5);
-              std::cout << printParallelTlist(timeList1, timeList2) << std::endl;
-              std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printParallelTlist(timeList1, timeList2);
+            if (*finished) {
+              std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py --csv " + argString + printParallelTlist(timeList1, timeList2);
+              // pthread_mutex_unlock(&lock);
               system(bashCall.c_str());
             } else {
-              finished = true;
+              *finished = true;
+              // pthread_mutex_unlock(&lock);
             }
           }
-
-        }, [=, &lock, &finished](auto){
+          
+        }, [=](auto){
           double time = double(timeDist->nextValue()) / (double)1000; // timeDist gives value in milliseconds; must convert to seconds.
 
-          spin(time / double(2));
-          
           high_resolution_clock::time_point t2 = high_resolution_clock::now();
+          spin(time / double(2));
           duration<double> total = duration_cast<duration<double>>(t2 - t1);
-          
           std::cout << "(2): " << timeList2->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
+          // pthread_mutex_lock(&lock);
           timeList2->emplace_back(total.count());
-
           if (timeList2->size() == size_t(no_of_whens)) {
-            if (finished) {
-              spin(0.5);
-              std::cout << printParallelTlist(timeList1, timeList2) << std::endl;
-              std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printParallelTlist(timeList1, timeList2);
+            if (*finished) {
+              std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py --csv " + argString + printParallelTlist(timeList1, timeList2);
+              // pthread_mutex_unlock(&lock);
               system(bashCall.c_str());
+              
             } else {
-              finished = true;
+              *finished = true;
+              // pthread_mutex_unlock(&lock);
             }
           }
-        });
-      
+          
+        }
+      );
     }
-    
   } else {
 
     std::vector<double>* timeList = new std::vector<double>;
-    timeList->reserve(no_of_whens);
 
     for (int i = 0; i < no_of_whens; i++) {
 
@@ -366,14 +368,11 @@ void test_body(int argc, char** argv)
       when(*sub_arr->data()) << [=, &lock](auto){
 
         double time = double(timeDist->nextValue()) / (double)1000; // timeDist gives value in milliseconds; must convert to seconds.
-        
         std::cout << time << " spin " << std::endl;
-        
         // double time = 0.1;
-
+        high_resolution_clock::time_point t2 = high_resolution_clock::now();
         spin(time);
         
-        high_resolution_clock::time_point t2 = high_resolution_clock::now();
         duration<double> total = duration_cast<duration<double>>(t2 - t1);
         
 
@@ -384,10 +383,8 @@ void test_body(int argc, char** argv)
         pthread_mutex_lock(&lock);
         std::cout << timeList->size() << " of " << no_of_whens << "\t" << total.count() << " seconds" << std::endl;
         timeList->emplace_back(total.count());
-
-        if (int(timeList->size()) == int(no_of_whens)) {
-          std::cout << printTlist(timeList, timeList->size()) << std::endl;
-          std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py " + printTlist(timeList, timeList->size());
+        if (timeList->size() == size_t(no_of_whens)) {
+          std::string bashCall = "python3 /Users/ryanward/Documents/git_repos/verona-rt/graphOut.py --csv " + argString + printTlist(timeList, timeList->size());
           pthread_mutex_unlock(&lock);
           system(bashCall.c_str());
         } else {
@@ -404,8 +401,13 @@ void test_body(int argc, char** argv)
 int main(int argc, char** argv) {
   
   SystematicTestHarness harness(argc, argv);
+
+  // An update for snmalloc was causing a debug allocation error, so this needs to be disabled. 
+  harness.detect_leaks = false;
   
   harness.run(test_body, argc, argv);
+
+  // test_body(argc, argv);
 
   return 0;
 }
